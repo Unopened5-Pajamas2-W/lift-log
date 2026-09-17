@@ -9,7 +9,7 @@ import type { Exercise, MuscleGroup, WorkoutSet } from "./types.ts";
 export interface FatigueInput {
   set: Pick<
     WorkoutSet,
-    "weightKg" | "addedWeightKg" | "reps" | "completed" | "createdAt"
+    "weightKg" | "addedWeightKg" | "reps" | "completed" | "createdAt" | "isWarmup"
   >;
   exercise: Pick<Exercise, "primaryMuscle" | "secondaryMuscles"> | undefined;
 }
@@ -26,6 +26,7 @@ function setContribution(
   now: number,
 ): number {
   if (!set.completed || !exercise) return 0;
+  if (set.isWarmup === true) return 0; // warmups never tax recovery
   const isPrimary = exercise.primaryMuscle === muscle;
   const isSecondary = exercise.secondaryMuscles.includes(muscle);
   // fullbody exercises lightly tax everything

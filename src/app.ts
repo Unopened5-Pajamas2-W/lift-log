@@ -120,6 +120,13 @@ export async function renderApp(shell: HTMLElement): Promise<void> {
     else go("/today");
   } catch (err) {
     console.error(err);
+    const storageFailed =
+      (err instanceof DOMException &&
+        ["QuotaExceededError", "VersionError", "InvalidStateError"].includes(
+          err.name,
+        )) ||
+      (err instanceof Error &&
+        /indexeddb|quota|versionchange|blocked|storage/i.test(err.message));
     view.appendChild(
       h(
         "div",
@@ -128,9 +135,11 @@ export async function renderApp(shell: HTMLElement): Promise<void> {
         h(
           "p",
           { class: "muted" },
-          err instanceof Error
-            ? err.message
-            : "Unknown error. Your data is still safe in IndexedDB.",
+          storageFailed
+            ? "Storage unavailable — your last change may not have saved. Free up space or close other Lift Log tabs, then retry."
+            : err instanceof Error
+              ? err.message
+              : "Unknown error. Your previously saved data is still in IndexedDB.",
         ),
         h("button", { onclick: () => go("/today") }, "Back to Today"),
       ),

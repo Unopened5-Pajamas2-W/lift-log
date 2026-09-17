@@ -33,4 +33,24 @@ describe("recovery", () => {
     const cleared = recoveryMap([chestInput(NOW)], { chest: null }, NOW);
     expect(cleared.chest).toBe(92);
   });
+
+  it("warmup sets never tax recovery", () => {
+    const map = recoveryMap(
+      [
+        {
+          set: {
+            weightKg: 100,
+            reps: 10,
+            completed: true,
+            createdAt: NOW,
+            isWarmup: true,
+          },
+          exercise: { primaryMuscle: "chest" as const, secondaryMuscles: [] },
+        },
+      ],
+      {},
+      NOW,
+    );
+    expect(map.chest).toBe(100);
+  });
 });

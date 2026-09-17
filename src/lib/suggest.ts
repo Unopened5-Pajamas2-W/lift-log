@@ -24,10 +24,13 @@ export interface SuggestInput {
   equipment: readonly Equipment[];
   recovery: Record<MuscleGroup, number>;
   library: Exercise[];
-  /** exerciseId → completed sets of most recent session (for overload + novelty). */
+  /** exerciseId → completed sets of recent sessions (for overload + novelty). */
   lastPerformance: Map<
     string,
-    Pick<WorkoutSet, "weightKg" | "reps" | "completed" | "createdAt">[]
+    Pick<
+      WorkoutSet,
+      "weightKg" | "reps" | "completed" | "createdAt" | "workoutId" | "isWarmup"
+    >[]
   >;
   lastDoneAt: Map<string, number>;
   disliked?: Set<string>;
@@ -39,9 +42,114 @@ export interface SuggestInput {
 
 export interface SuggestedItem {
   exerciseId: string;
-  sets: { weightKg: number; reps: number }[];
+  sets: { weightKg: number; reps: number; isWarmup?: boolean }[];
   suggestedWeightKg: number;
   explanation: string;
+}
+
+/** Recent-window + warmup tuning. Exported for tests and explanations. */
+export const MAX_SESSIONS_FOR_BASELINE = 3;
+/** Never prescribe more than the baseline when history is this stale. */
+export const STALE_DAYS = 21;
+/** Warmup ramp prepended to the first exercise per primary muscle. */
+export const WARMUP_SETS: readonly { reps: number; pct: number }[] = [
+  { reps: 8, pct: 0.6 },
+  { reps: 3, pct: 0.85 },
+];
+
+/** Warmup rows for a working weight (8×60% + 3×85%), flagged warmup. */
+export function buildWarmupSets(
+  workingKg: number,
+): { weightKg: number; reps: number; isWarmup: true }[] {
+  return WARMUP_SETS.map((w) => ({
+    weightKg: round4(workingKg * w.pct),
+    reps: w.reps,
+    isWarmup: true as const,
+  }));
+}
+
+/** Quarter-kg rounding (matches the rest of the codebase). */
+function round4(v: number): number {
+  return Math.round(v * 4) / 4;
+}
+
+export type OverloadHistory = Pick<WorkoutSet, "weightKg" | "reps" | "completed"> &
+  Partial<Pick<WorkoutSet, "workoutId" | "createdAt" | "isWarmup">>;
+
+interface WorkingSession {
+  sessionTime: number;
+  /** Heaviest completed working weight in the session. */
+  top: number;
+  target: number;
+  worstShortfall: number;
+  allHit: boolean;
+}
+
+/**
+ * Group completed working sets into sessions (by workoutId, recency from
+ * max createdAt, newest first), capped at MAX_SESSIONS_FOR_BASELINE.
+ * Warmups and incompletes never contribute. Inputs without workoutId
+ * (e.g. legacy unit vectors) form a single session with unknown time (0),
+ * which also opts out of the staleness guard.
+ */
+export function groupWorkingSessions(sets: OverloadHistory[]): WorkingSession[] {
+  const bySession = new Map<string, { time: number; sets: OverloadHistory[] }>();
+  for (const s of sets) {
+    if (!s.completed || s.isWarmup === true) continue;
+    const key = s.workoutId ?? "__single__";
+    let g = bySession.get(key);
+    if (!g) {
+      g = { time: 0, sets: [] };
+      bySession.set(key, g);
+    }
+    g.sets.push(s);
+    if (typeof s.createdAt === "number" && Number.isFinite(s.createdAt))
+      g.time = Math.max(g.time, s.createdAt);
+  }
+  return [...bySession.values()]
+    .map((g) => {
+      const top = Math.max(...g.sets.map((s) => s.weightKg));
+      const target = Math.max(...g.sets.map((s) => s.reps));
+      const shortfalls = g.sets.map((s) => s.reps - target);
+      return {
+        sessionTime: g.time,
+        top,
+        target,
+        worstShortfall: Math.min(...shortfalls),
+        allHit: shortfalls.every((d) => d >= 0),
+      };
+    })
+    .sort((a, b) => b.sessionTime - a.sessionTime)
+    .slice(0, MAX_SESSIONS_FOR_BASELINE);
+}
+
+/** Progressive-overload prefill for one exercise's top set. */
+export function suggestNextWeight(
+  lastSets: OverloadHistory[],
+  primaryMuscle: MuscleGroup,
+  units: Units,
+  now = Date.now(),
+): { weightKg: number; reps: number } {
+  const sessions = groupWorkingSessions(lastSets);
+  const latest = sessions[0];
+  if (!latest) return { weightKg: 20, reps: 8 };
+  const baseline =
+    round4(sessions.reduce((sum, s) => sum + s.top, 0) / sessions.length);
+  const target = latest.target;
+  if (latest.worstShortfall <= -2) {
+    // Struggle (spec §7: −2 or worse) → deload 5% off the recent baseline.
+    return { weightKg: round4(baseline * 0.95), reps: target };
+  }
+  if (!latest.allHit) return { weightKg: baseline, reps: target };
+  if (
+    latest.sessionTime > 0 &&
+    now - latest.sessionTime > STALE_DAYS * 86_400_000
+  ) {
+    // Stale history: hold the baseline, never progress off old numbers.
+    return { weightKg: baseline, reps: target };
+  }
+  const inc = overloadIncrementKg(LOWER_BODY.has(primaryMuscle), units);
+  return { weightKg: round4(baseline + inc), reps: target };
 }
 
 const FOCUS_MUSCLES: Record<Exclude<Focus, "custom">, MuscleGroup[] | null> = {
@@ -55,27 +163,6 @@ const FOCUS_MUSCLES: Record<Exclude<Focus, "custom">, MuscleGroup[] | null> = {
 function targetMuscles(input: SuggestInput): MuscleGroup[] | null {
   if (input.focus === "custom") return input.customMuscles ?? null;
   return FOCUS_MUSCLES[input.focus];
-}
-
-/** Progressive-overload prefill for one exercise's top set. */
-export function suggestNextWeight(
-  lastSets: Pick<WorkoutSet, "weightKg" | "reps" | "completed">[],
-  primaryMuscle: MuscleGroup,
-  units: Units,
-): { weightKg: number; reps: number } {
-  const done = lastSets.filter((s) => s.completed);
-  if (done.length === 0) return { weightKg: 20, reps: 8 };
-  const top = done.reduce((a, b) => (b.weightKg > a.weightKg ? b : a));
-  const target = Math.max(...done.map((s) => s.reps));
-  const allHitTarget = done.every((s) => s.reps >= target);
-  const worstShortfall = Math.min(...done.map((s) => s.reps - target));
-  if (worstShortfall <= -4) {
-    // Repeated struggle → deload 5%.
-    return { weightKg: Math.round(top.weightKg * 0.95 * 4) / 4, reps: target };
-  }
-  if (!allHitTarget) return { weightKg: top.weightKg, reps: target };
-  const inc = overloadIncrementKg(LOWER_BODY.has(primaryMuscle), units);
-  return { weightKg: Math.round((top.weightKg + inc) * 4) / 4, reps: target };
 }
 
 export function generateWorkout(input: SuggestInput): {
@@ -149,20 +236,38 @@ export function generateWorkout(input: SuggestInput): {
     picked.push(...scored.slice(0, maxExercises));
   }
 
-  const items: SuggestedItem[] = picked.map(({ e, freshness, rec }) => {
+  const items: SuggestedItem[] = [];
+  const warmedMuscles = new Set<MuscleGroup>();
+  for (const { e, freshness, rec } of picked) {
     const last = input.lastPerformance.get(e.id) ?? [];
     const suggestion = suggestNextWeight(last, e.primaryMuscle, input.units);
     const setCount = budgetMin <= 20 ? 2 : 3;
-    return {
+    const working = Array.from({ length: setCount }, () => ({
+      weightKg: suggestion.weightKg,
+      reps: suggestion.reps,
+    }));
+    // First exercise per primary muscle opens with the warmup ramp.
+    let sets: SuggestedItem["sets"] = working;
+    if (!warmedMuscles.has(e.primaryMuscle)) {
+      warmedMuscles.add(e.primaryMuscle);
+      sets = [...buildWarmupSets(suggestion.weightKg), ...working];
+    }
+    const sessions = groupWorkingSessions(last);
+    const latestTop = sessions[0]?.top;
+    const history =
+      sessions.length > 1
+        ? `last ${sessions.length}-session avg ${round4(sessions.reduce((sum, s) => sum + s.top, 0) / sessions.length)} kg → ${suggestion.weightKg} kg`
+        : `last ${latestTop ?? suggestion.weightKg} kg → ${suggestion.weightKg} kg`;
+    items.push({
       exerciseId: e.id,
-      sets: Array.from({ length: setCount }, () => ({ ...suggestion })),
+      sets,
       suggestedWeightKg: suggestion.weightKg,
       explanation:
-        last.length === 0
+        sessions.length === 0
           ? `${e.name}: new movement, starting light (${rec}% ${e.primaryMuscle} recovered).`
-          : `${e.name}: last ${Math.max(...last.map((s) => s.weightKg))} kg → ${suggestion.weightKg} kg (${rec}% recovered${freshness > 20 ? ", fresh rotation" : ""}).`,
-    };
-  });
+          : `${e.name}: ${history} (${rec}% recovered${freshness > 20 ? ", fresh rotation" : ""}).`,
+    });
+  }
 
   return { items, explanations: items.map((i) => i.explanation) };
 }

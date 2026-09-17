@@ -65,12 +65,14 @@ export interface WorkoutSet {
   reps: number;
   rpe?: number;
   completed: boolean;
+  /** Warmup rows (8×60% + 3×85%) — excluded from e1RM, volume, PRs, recovery, suggestions. Absent = working set. */
+  isWarmup?: boolean;
   createdAt: number;
 }
 
 export interface TemplateItem {
   exerciseId: string;
-  sets: { weightKg: number; reps: number }[];
+  sets: { weightKg: number; reps: number; isWarmup?: boolean }[];
 }
 
 export interface Template {
@@ -90,6 +92,8 @@ export interface Settings {
   units: Units;
   equipment: Equipment[];
   restSeconds: number;
+  /** Olympic/bar weight in canonical kg for the plate calculator. Default 20. */
+  barWeightKg: number;
   recoveryOverrides: Partial<Record<MuscleGroup, number | null>>;
   disclaimerAccepted: boolean;
   /** v2 seam: unknown future fields (sync, health) survive backup round-trips. */

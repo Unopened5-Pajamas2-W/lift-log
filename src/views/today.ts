@@ -14,7 +14,7 @@ import { generateWorkout } from "../lib/suggest.ts";
 import { listExercises } from "../lib/store.ts";
 import { recoveryMap } from "../lib/recovery.ts";
 import { randomSeed } from "../lib/rng.ts";
-import { go, h } from "../lib/ui.ts";
+import { go, h, toast } from "../lib/ui.ts";
 
 export async function renderToday(): Promise<HTMLElement> {
   const root = h("div", {});
@@ -34,10 +34,15 @@ export async function renderToday(): Promise<HTMLElement> {
   const card = h("div", { class: "card" }, h("strong", {}, "Recovery"));
   card.appendChild(
     renderRecoveryMap(map, async (m: MuscleGroup, v: number | null) => {
-      await saveSettings({
-        recoveryOverrides: { ...settings.recoveryOverrides, [m]: v },
-      });
-      go("/today");
+      try {
+        await saveSettings({
+          recoveryOverrides: { ...settings.recoveryOverrides, [m]: v },
+        });
+        go("/today");
+      } catch (err) {
+        console.error(err);
+        toast("Couldn't save — storage unavailable. Retry.");
+      }
     }),
   );
   root.appendChild(card);
@@ -111,6 +116,8 @@ export async function renderToday(): Promise<HTMLElement> {
                 reps: number;
                 completed: boolean;
                 createdAt: number;
+                workoutId: string;
+                isWarmup?: boolean;
               }[]
             >();
             const lastDone = new Map<string, number>();
@@ -122,7 +129,8 @@ export async function renderToday(): Promise<HTMLElement> {
                 Math.max(lastDone.get(s.exerciseId) ?? 0, s.createdAt),
               );
             }
-            // Keep only most recent session per exercise for overload seeding.
+            // Flat lifetime history per exercise; suggest.ts groups it into
+            // sessions internally (recent-window baseline, warmups ignored).
             const { items, explanations } = generateWorkout({
               durationMin: Number(durSel.value) as 20 | 30 | 45 | 60,
               focus: focusSel.value as
@@ -157,16 +165,26 @@ export async function renderToday(): Promise<HTMLElement> {
                 "button",
                 {
                   class: "primary",
-                  onclick: async () => {
-                    const w = await startWorkout({
-                      title: `Suggested ${focusSel.value}`,
-                      seed: randomSeed(),
-                      items: items.map((i) => ({
-                        exerciseId: i.exerciseId,
-                        sets: i.sets,
-                      })),
-                    });
-                    go(`/workout/${w.id}`);
+                  onclick: async (e) => {
+                    const btn = e.currentTarget as HTMLButtonElement | null;
+                    btn?.setAttribute("disabled", "true");
+                    try {
+                      const w = await startWorkout({
+                        title: `Suggested ${focusSel.value}`,
+                        seed: randomSeed(),
+                        items: items.map((i) => ({
+                          exerciseId: i.exerciseId,
+                          sets: i.sets,
+                        })),
+                      });
+                      go(`/workout/${w.id}`);
+                    } catch (err) {
+                      console.error(err);
+                      btn?.removeAttribute("disabled");
+                      toast(
+                        "Couldn't start workout — storage unavailable. Retry.",
+                      );
+                    }
                   },
                 },
                 `Start (${items.length} exercises)`,
@@ -179,9 +197,17 @@ export async function renderToday(): Promise<HTMLElement> {
       h(
         "button",
         {
-          onclick: async () => {
-            const w = await startWorkout({ title: "Empty workout" });
-            go(`/workout/${w.id}`);
+          onclick: async (e) => {
+            const btn = e.currentTarget as HTMLButtonElement | null;
+            btn?.setAttribute("disabled", "true");
+            try {
+              const w = await startWorkout({ title: "Empty workout" });
+              go(`/workout/${w.id}`);
+            } catch (err) {
+              console.error(err);
+              btn?.removeAttribute("disabled");
+              toast("Couldn't start workout — storage unavailable. Retry.");
+            }
           },
         },
         "Start empty",

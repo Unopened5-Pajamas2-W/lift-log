@@ -38,6 +38,15 @@ describe("metrics", () => {
     ).toBe(480);
   });
 
+  it("excludes warmups from best e1RM and volume", () => {
+    const sets = [
+      { weightKg: 100, reps: 8, completed: true, isWarmup: true },
+      { weightKg: 60, reps: 8, completed: true },
+    ];
+    expect(sessionBestE1RM(sets)).toBeCloseTo(60 * (1 + 8 / 30), 5);
+    expect(sessionVolume(sets)).toBe(480);
+  });
+
   it("detects PRs and ignores float noise", () => {
     expect(isPR(115, 110)).toBe(true);
     expect(isPR(110.0005, 110)).toBe(false);

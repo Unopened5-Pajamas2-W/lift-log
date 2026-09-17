@@ -31,12 +31,25 @@ describe("backup", () => {
         volume: 480,
         completed: true,
       },
+      {
+        date: "2026-09-16",
+        workout: "Push",
+        exercise: "Bench",
+        setNumber: 2,
+        weightKg: 36,
+        reps: 8,
+        volume: 288,
+        completed: true,
+        isWarmup: true,
+      },
     ]);
     const lines = csv.split("\n");
     expect(lines[0]).toBe(
-      "date,workout,exercise,set_number,weight_kg,reps,rpe,volume",
+      "date,workout,exercise,set_number,weight_kg,reps,rpe,volume,is_warmup",
     );
-    expect(lines).toHaveLength(2);
+    expect(lines).toHaveLength(3);
     expect(lines[1]).toContain("60,8");
+    expect(lines[1]).toMatch(/,0$/);
+    expect(lines[2]).toMatch(/,1$/);
   });
 });

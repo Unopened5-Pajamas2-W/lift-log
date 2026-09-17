@@ -24,23 +24,29 @@ export function setE1RM(
   return epley1RM(set.weightKg + (set.addedWeightKg ?? 0), set.reps);
 }
 
-/** Best e1RM across completed sets (0 if none qualify). */
+/** Best e1RM across completed working sets (warmups excluded; 0 if none qualify). */
 export function sessionBestE1RM(
-  sets: Pick<WorkoutSet, "weightKg" | "addedWeightKg" | "reps" | "completed">[],
+  sets: Pick<
+    WorkoutSet,
+    "weightKg" | "addedWeightKg" | "reps" | "completed" | "isWarmup"
+  >[],
 ): number {
   let best = 0;
   for (const s of sets) {
-    if (!s.completed) continue;
+    if (!s.completed || s.isWarmup === true) continue;
     best = Math.max(best, setE1RM(s));
   }
   return best;
 }
 
 export function sessionVolume(
-  sets: Pick<WorkoutSet, "weightKg" | "addedWeightKg" | "reps" | "completed">[],
+  sets: Pick<
+    WorkoutSet,
+    "weightKg" | "addedWeightKg" | "reps" | "completed" | "isWarmup"
+  >[],
 ): number {
   return sets
-    .filter((s) => s.completed)
+    .filter((s) => s.completed && s.isWarmup !== true)
     .reduce((sum, s) => sum + setVolume(s), 0);
 }
 

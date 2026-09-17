@@ -64,10 +64,12 @@ export async function renderHistory(detailId?: string): Promise<HTMLElement> {
         ),
       );
       const table = h("table", { class: "set-table" });
+      table.appendChild(h("caption", { class: "sr-only" }, "Logged sets"));
+      const historyBody = h("tbody", {});
       group
         .sort((a, b) => a.order - b.order)
         .forEach((s, i) => {
-          table.appendChild(
+          historyBody.appendChild(
             renderSetRow({
               set: s,
               index: i + 1,
@@ -83,7 +85,8 @@ export async function renderHistory(detailId?: string): Promise<HTMLElement> {
             }),
           );
         });
-      block.appendChild(table);
+      table.appendChild(historyBody);
+      block.appendChild(h("div", { class: "table-wrap" }, table));
       card.appendChild(block);
     }
     card.appendChild(
@@ -102,7 +105,10 @@ export async function renderHistory(detailId?: string): Promise<HTMLElement> {
               if (!name) return;
               const items = [...groups.entries()].map(([exerciseId, g]) => ({
                 exerciseId,
-                sets: g.map((s) => ({ weightKg: s.weightKg, reps: s.reps })),
+                // Templates stay working-sets-only: warmups never carry over.
+                sets: g
+                  .filter((s) => s.isWarmup !== true)
+                  .map((s) => ({ weightKg: s.weightKg, reps: s.reps })),
               }));
               await saveTemplate({
                 id: uuid(),

@@ -15,11 +15,10 @@ const PRECACHE = [
 ];
 
 self.addEventListener("install", (event) => {
+  // NOTE: no skipWaiting here — activation is deferred until no workout is
+  // active. The app sends a SKIP_WAITING message when safe (see sw-register.ts).
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE))
-      .then(() => self.skipWaiting()),
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE)),
   );
 });
 

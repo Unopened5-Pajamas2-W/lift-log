@@ -1,24 +1,65 @@
-/** Minimal promise-based IndexedDB wrapper (~80 lines, own code, no deps). */
+/** Minimal promise-based IndexedDB wrapper (own code, no deps). */
+
+export type UpgradeFn = (
+  db: IDBDatabase,
+  oldVersion: number,
+  newVersion: number,
+  tx: IDBTransaction | null,
+) => void;
 
 export function openDb(
   name: string,
   version: number,
-  upgrade: (db: IDBDatabase, oldVersion: number) => void,
+  upgrade: UpgradeFn,
 ): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(name, version);
-    req.onupgradeneeded = () => upgrade(req.result, req.transaction ? 0 : 0);
+    req.onupgradeneeded = (e) => {
+      const evt = e as IDBVersionChangeEvent;
+      upgrade(
+        req.result,
+        evt.oldVersion,
+        evt.newVersion ?? version,
+        req.transaction,
+      );
+    };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
-    req.onblocked = () => reject(new Error("IndexedDB upgrade blocked"));
+    req.onblocked = () =>
+      reject(
+        new Error(
+          "Close other Lift Log tabs to finish the upgrade, then reload.",
+        ),
+      );
   });
 }
 
-function txDone(tx: IDBTransaction): Promise<void> {
+/**
+ * Run fn inside a single transaction spanning storeNames.
+ * The transaction commits atomically: either all queued requests apply
+ * or (on error/abort/crash) none do.
+ */
+export function runTx(
+  db: IDBDatabase,
+  storeNames: string | string[],
+  mode: IDBTransactionMode,
+  fn: (tx: IDBTransaction) => void,
+): Promise<void> {
   return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeNames, mode);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error ?? new Error("transaction aborted"));
+    try {
+      fn(tx);
+    } catch (err) {
+      try {
+        tx.abort();
+      } catch {
+        /* abort itself failed; onabort handler will reject */
+      }
+      reject(err);
+    }
   });
 }
 
@@ -28,10 +69,10 @@ export async function putAll<T>(
   values: T[],
 ): Promise<void> {
   if (values.length === 0) return;
-  const tx = db.transaction(store, "readwrite");
-  const os = tx.objectStore(store);
-  for (const v of values) os.put(v);
-  await txDone(tx);
+  await runTx(db, store, "readwrite", (tx) => {
+    const os = tx.objectStore(store);
+    for (const v of values) os.put(v);
+  });
 }
 
 export async function putOne<T>(
@@ -39,9 +80,9 @@ export async function putOne<T>(
   store: string,
   value: T,
 ): Promise<void> {
-  const tx = db.transaction(store, "readwrite");
-  tx.objectStore(store).put(value);
-  await txDone(tx);
+  await runTx(db, store, "readwrite", (tx) => {
+    tx.objectStore(store).put(value);
+  });
 }
 
 export async function getOne<T>(
@@ -85,16 +126,16 @@ export async function deleteOne(
   store: string,
   key: IDBValidKey,
 ): Promise<void> {
-  const tx = db.transaction(store, "readwrite");
-  tx.objectStore(store).delete(key);
-  await txDone(tx);
+  await runTx(db, store, "readwrite", (tx) => {
+    tx.objectStore(store).delete(key);
+  });
 }
 
 export async function clearStore(
   db: IDBDatabase,
   store: string,
 ): Promise<void> {
-  const tx = db.transaction(store, "readwrite");
-  tx.objectStore(store).clear();
-  await txDone(tx);
+  await runTx(db, store, "readwrite", (tx) => {
+    tx.objectStore(store).clear();
+  });
 }

@@ -12,6 +12,13 @@ export function registerServiceWorker(opts: {
     navigator.serviceWorker
       .register(`${import.meta.env.BASE_URL}sw.js`)
       .then((reg) => {
+        let pollId: number | null = null;
+        const stopPolling = () => {
+          if (pollId !== null) {
+            window.clearInterval(pollId);
+            pollId = null;
+          }
+        };
         reg.addEventListener("updatefound", () => {
           const worker = reg.installing;
           if (!worker) return;
@@ -32,7 +39,7 @@ export function registerServiceWorker(opts: {
                 toast(
                   "Update downloaded — will apply after you finish this workout.",
                 );
-                const iv = window.setInterval(() => {
+                pollId = window.setInterval(() => {
                   void (async () => {
                     let stillActive = true;
                     try {
@@ -41,7 +48,7 @@ export function registerServiceWorker(opts: {
                       stillActive = true;
                     }
                     if (!stillActive) {
-                      window.clearInterval(iv);
+                      stopPolling();
                       worker.postMessage("SKIP_WAITING");
                     }
                   })();
@@ -57,6 +64,7 @@ export function registerServiceWorker(opts: {
         navigator.serviceWorker.addEventListener("controllerchange", () => {
           if (refreshing) return;
           refreshing = true;
+          stopPolling();
           window.location.reload();
         });
       })

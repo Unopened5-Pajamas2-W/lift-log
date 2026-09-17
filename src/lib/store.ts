@@ -1,6 +1,5 @@
 /** Persistent store: IndexedDB CRUD, seed import, singleton active workout. */
 import {
-  clearStore,
   deleteOne,
   getAll,
   getAllByIndex,
@@ -8,7 +7,10 @@ import {
   openDb,
   putAll,
   putOne,
+  runTx,
 } from "./db.ts";
+import { validateRestore } from "./backup.ts";
+import type { RestoreResult, ValidRow } from "./backup.ts";
 import { ALL_EQUIPMENT } from "../data/muscles.ts";
 import seedExercises from "../data/exercises.json";
 import seedTemplates from "../data/templates.json";
@@ -32,6 +34,7 @@ export const STORES = [
 ] as const;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+let liveDb: IDBDatabase | null = null;
 
 function upgradeDb(db: IDBDatabase): void {
   if (!db.objectStoreNames.contains("exercises")) {
@@ -57,9 +60,37 @@ function upgradeDb(db: IDBDatabase): void {
 }
 
 export function getDb(): Promise<IDBDatabase> {
-  if (!dbPromise)
-    dbPromise = openDb(DB_NAME, SCHEMA_VERSION, (db) => upgradeDb(db));
+  if (!dbPromise) {
+    dbPromise = openDb(DB_NAME, SCHEMA_VERSION, (db) => upgradeDb(db)).then(
+      (db) => {
+        liveDb = db;
+        db.onversionchange = () => {
+          db.close();
+          liveDb = null;
+          dbPromise = null;
+        };
+        return db;
+      },
+      (err) => {
+        // Never cache a rejection: the next caller retries the open.
+        dbPromise = null;
+        liveDb = null;
+        throw err;
+      },
+    );
+  }
   return dbPromise;
+}
+
+/** Test-only: close the cached connection so tests can isolate per case. */
+export function __resetDbConnection(): void {
+  try {
+    liveDb?.close();
+  } catch {
+    /* already closed */
+  }
+  liveDb = null;
+  dbPromise = null;
 }
 
 export function uuid(): string {
@@ -74,6 +105,7 @@ export function defaultSettings(): Settings {
     units: "lb",
     equipment: [...ALL_EQUIPMENT],
     restSeconds: 90,
+    barWeightKg: 20,
     recoveryOverrides: {},
     disclaimerAccepted: false,
   };
@@ -81,34 +113,50 @@ export function defaultSettings(): Settings {
 
 export async function ensureSeeded(): Promise<void> {
   const db = await getDb();
-  // Always upsert seed exercises/templates (idempotent by id); never touch customs.
+  // Insert-missing-only: never modify an existing row, so user edits to
+  // seeded exercises/templates (rename, archive) survive relaunches.
+  // Future seed-content updates require an explicit versioned migration,
+  // never a silent overwrite here.
   const now = Date.now();
-  const exercises: Exercise[] = (
+  const exerciseIds = new Set(
+    (await getAll<{ id: string }>(db, "exercises")).map((e) => e.id),
+  );
+  const missingExercises: Exercise[] = (
     seedExercises as Omit<
       Exercise,
       "isCustom" | "isArchived" | "createdAt" | "updatedAt"
     >[]
-  ).map((e) => ({
-    ...e,
-    isCustom: false,
-    isArchived: false,
-    createdAt: now,
-    updatedAt: now,
-  }));
-  await putAll(db, "exercises", exercises);
-  const templates: Template[] = (
+  )
+    .filter((e) => !exerciseIds.has(e.id))
+    .map((e) => ({
+      ...e,
+      isCustom: false,
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now,
+    }));
+  await putAll(db, "exercises", missingExercises);
+  const templateIds = new Set(
+    (await getAll<{ id: string }>(db, "templates")).map((t) => t.id),
+  );
+  const missingTemplates: Template[] = (
     seedTemplates as Omit<Template, "createdAt" | "updatedAt">[]
-  ).map((t) => ({
-    ...t,
-    createdAt: now,
-    updatedAt: now,
-  }));
-  await putAll(db, "templates", templates);
+  )
+    .filter((t) => !templateIds.has(t.id))
+    .map((t) => ({
+      ...t,
+      createdAt: now,
+      updatedAt: now,
+    }));
+  await putAll(db, "templates", missingTemplates);
   const settings = await getOne<Settings>(db, "settings", "app");
   if (!settings) await putOne(db, "settings", defaultSettings());
-  await putOne(db, "meta", { id: "meta", schemaVersion: SCHEMA_VERSION });
+  const meta = await getOne(db, "meta", "meta");
+  if (!meta)
+    await putOne(db, "meta", { id: "meta", schemaVersion: SCHEMA_VERSION });
   try {
-    if (navigator.storage?.persist) await navigator.storage.persist();
+    if (typeof navigator !== "undefined" && navigator.storage?.persist)
+      await navigator.storage.persist();
   } catch {
     /* best-effort */
   }
@@ -118,7 +166,9 @@ export async function ensureSeeded(): Promise<void> {
 export async function loadSettings(): Promise<Settings> {
   const db = await getDb();
   const s = await getOne<Settings>(db, "settings", "app");
-  return s ?? defaultSettings();
+  // Additive defaults: pre-existing settings rows gain new fields (barWeightKg)
+  // without a migration.
+  return { ...defaultSettings(), ...s, id: "app" as const };
 }
 
 export async function saveSettings(
@@ -185,11 +235,34 @@ export async function getActiveWorkout(): Promise<Workout | undefined> {
   return all.find((w) => w.status === "active");
 }
 
-export async function startWorkout(input: {
+/** In-flight start guard: rapid double-taps share one creation. */
+let starting: Promise<Workout> | null = null;
+
+export function startWorkout(input: {
   title: string;
   templateId?: string;
   seed?: number;
-  items?: { exerciseId: string; sets: { weightKg: number; reps: number }[] }[];
+  items?: {
+    exerciseId: string;
+    sets: { weightKg: number; reps: number; isWarmup?: boolean }[];
+  }[];
+}): Promise<Workout> {
+  if (!starting) {
+    starting = startWorkoutInner(input).finally(() => {
+      starting = null;
+    });
+  }
+  return starting;
+}
+
+async function startWorkoutInner(input: {
+  title: string;
+  templateId?: string;
+  seed?: number;
+  items?: {
+    exerciseId: string;
+    sets: { weightKg: number; reps: number; isWarmup?: boolean }[];
+  }[];
 }): Promise<Workout> {
   const existing = await getActiveWorkout();
   if (existing) return existing; // singleton invariant
@@ -203,9 +276,8 @@ export async function startWorkout(input: {
     templateId: input.templateId,
     seed: input.seed,
   };
-  await putOne(db, "workouts", workout);
+  const sets: WorkoutSet[] = [];
   if (input.items) {
-    const sets: WorkoutSet[] = [];
     let order = 0;
     for (const item of input.items) {
       for (const s of item.sets) {
@@ -217,12 +289,20 @@ export async function startWorkout(input: {
           weightKg: s.weightKg,
           reps: s.reps,
           completed: false,
+          ...(s.isWarmup === true ? { isWarmup: true as const } : {}),
           createdAt: now,
         });
       }
     }
-    await putAll(db, "sets", sets);
   }
+  // Single transaction: a crash leaves no phantom-empty workout behind.
+  await runTx(db, ["workouts", "sets"], "readwrite", (tx) => {
+    tx.objectStore("workouts").put(workout);
+    if (sets.length > 0) {
+      const os = tx.objectStore("sets");
+      for (const s of sets) os.put(s);
+    }
+  });
   return workout;
 }
 
@@ -260,14 +340,12 @@ export async function discardWorkout(id: string): Promise<void> {
 
 export async function deleteWorkout(id: string): Promise<void> {
   const db = await getDb();
-  await deleteOne(db, "workouts", id);
   const sets = await getAllByIndex<WorkoutSet>(db, "sets", "by-workoutId", id);
-  const tx = db.transaction("sets", "readwrite");
-  const os = tx.objectStore("sets");
-  for (const s of sets) os.delete(s.id);
-  await new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
+  // Single transaction: never strand orphan sets on crash.
+  await runTx(db, ["workouts", "sets"], "readwrite", (tx) => {
+    tx.objectStore("workouts").delete(id);
+    const os = tx.objectStore("sets");
+    for (const s of sets) os.delete(s.id);
   });
 }
 
@@ -342,21 +420,67 @@ export async function dumpAll(): Promise<Record<string, unknown[]>> {
 
 export async function restoreAll(
   data: Record<string, unknown[]>,
-): Promise<void> {
+): Promise<RestoreResult> {
+  // Validate before touching the DB: invalid rows never fail the import.
+  const { valid, invalid, unknownStores } = validateRestore(data);
   const db = await getDb();
+  const result = {} as RestoreResult;
   for (const s of STORES) {
-    if (!Array.isArray(data[s])) continue;
-    // Merge by id (UUID dedupe): existing ids win unless incoming is newer.
-    const existing = await getAll<{ id?: string; updatedAt?: number }>(db, s);
-    const byId = new Map(existing.map((e) => [e.id, e]));
-    const toWrite = (data[s] as { id?: string }[]).filter(
-      (row) => row && row.id && !byId.has(row.id),
-    );
-    await putAll(db, s, toWrite);
+    result[s] = {
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      invalid: invalid[s] ?? 0,
+    };
   }
+  // Diff in memory, then write everything in one atomic transaction.
+  const toWrite: Partial<Record<(typeof STORES)[number], ValidRow[]>> = {};
+  for (const s of STORES) {
+    const rows = valid[s];
+    if (!rows || rows.length === 0) continue;
+    const existing = await getAll<{ id: string; updatedAt?: unknown }>(db, s);
+    const byId = new Map(existing.map((e) => [e.id, e]));
+    const writes: ValidRow[] = [];
+    for (const row of rows) {
+      const cur = byId.get(row.id);
+      if (!cur) {
+        writes.push(row);
+        result[s].inserted += 1;
+        continue;
+      }
+      // Last-write-wins by updatedAt; ties and missing stamps keep existing.
+      const incomingTs = row.updatedAt;
+      const currentTs = cur.updatedAt;
+      if (
+        typeof incomingTs === "number" &&
+        Number.isFinite(incomingTs) &&
+        (typeof currentTs !== "number" || incomingTs > currentTs)
+      ) {
+        writes.push(row);
+        result[s].updated += 1;
+      } else {
+        result[s].skipped += 1;
+      }
+    }
+    if (writes.length > 0) toWrite[s] = writes;
+  }
+  const targets = (Object.keys(toWrite) as (typeof STORES)[number][]).filter(
+    (s) => (toWrite[s]?.length ?? 0) > 0,
+  );
+  if (targets.length > 0) {
+    await runTx(db, targets, "readwrite", (tx) => {
+      for (const s of targets) {
+        const os = tx.objectStore(s);
+        for (const row of toWrite[s] ?? []) os.put(row);
+      }
+    });
+  }
+  return { ...result, unknownStores };
 }
 
 export async function wipeAll(): Promise<void> {
   const db = await getDb();
-  for (const s of STORES) await clearStore(db, s);
+  await runTx(db, [...STORES], "readwrite", (tx) => {
+    for (const s of STORES) tx.objectStore(s).clear();
+  });
 }

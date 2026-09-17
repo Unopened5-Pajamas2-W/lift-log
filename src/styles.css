@@ -36,9 +36,18 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  /* Dynamic Type bridge: -apple-system-body tracks the iOS text-size
+     preference; the font-family line below keeps the same stack while
+     preserving the scaled size. Non-Apple browsers ignore the first
+     declaration and use the inherited default size (100% = user setting). */
+  font: -apple-system-body;
   font-family:
     -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI",
     sans-serif;
+  /* Never shrink below the browser default: keeps rem-based breakpoints
+     and zoom behavior predictable for large-text testing. */
+  font-size: max(1rem, 16px);
+  line-height: 1.45;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
@@ -51,6 +60,7 @@ header.topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 8px 4px 12px;
 }
@@ -74,6 +84,7 @@ main {
 .row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 .grow {
@@ -118,9 +129,26 @@ textarea {
   border: 1px solid var(--border);
   background: var(--bg-soft);
   width: 100%;
+  max-width: 100%;
+  /* WCAG C17/F80: form controls scale with text and never shrink below
+     the iOS focus-zoom threshold. */
+  font-size: max(1em, 16px);
+  line-height: 1.3;
 }
 input[type="number"] {
   width: 100%;
+  /* ch units grow with font-size, so fields widen instead of clipping. */
+  min-width: 4ch;
+  text-align: center;
+  flex: 1 1 auto;
+}
+input[type="checkbox"] {
+  width: 1.5em;
+  height: 1.5em;
+  min-height: 44px;
+  min-width: 44px;
+  accent-color: var(--accent);
+  flex: none;
 }
 label {
   display: grid;
@@ -142,15 +170,26 @@ nav.tabbar {
 nav.tabbar a {
   display: grid;
   place-items: center;
+  align-content: center;
   min-height: 56px;
+  min-width: 0;
+  padding: 4px 2px;
   color: var(--muted);
   text-decoration: none;
   font-size: 0.72rem;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
   gap: 2px;
 }
 nav.tabbar a[aria-current="page"] {
   color: var(--accent);
   font-weight: 700;
+}
+.table-wrap {
+  overflow-x: auto;
+  margin: 0 -4px;
+  padding: 0 4px;
 }
 .set-table {
   width: 100%;
@@ -161,15 +200,109 @@ nav.tabbar a[aria-current="page"] {
   padding: 6px 4px;
   text-align: center;
   border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.set-table th {
+  white-space: nowrap;
 }
 .stepper {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
 }
 .stepper button {
   min-width: 44px;
+  min-height: 44px;
+  flex: none;
   font-size: 1.1rem;
+}
+/* Weight values run wider (e.g. "187.5") than rep counts ("12"). */
+.set-cell-weight input[type="number"] {
+  min-width: 7ch;
+}
+.set-cell-reps input[type="number"] {
+  min-width: 4ch;
+}
+.field-label {
+  display: none;
+}
+/* Stacked set cards for narrow screens and large text.
+   Phones get one set per card at every text size (cards grow taller
+   instead of crushing inputs); desktop keeps the dense table until
+   200% zoom shrinks the CSS viewport across the same breakpoint. */
+@media (max-width: 34rem) {
+  .set-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .set-table,
+  .set-table tbody,
+  .set-table tr.set-row {
+    display: block;
+    width: 100%;
+  }
+  .set-table tr.set-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas:
+      "num done actions"
+      "weight weight weight"
+      "reps reps reps";
+    gap: 4px 8px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .set-table tr.set-row > td {
+    border-bottom: none;
+    padding: 2px;
+    min-width: 0;
+  }
+  .set-cell-num {
+    grid-area: num;
+    text-align: left;
+    font-weight: 700;
+    justify-self: start;
+  }
+  .set-cell-done {
+    grid-area: done;
+    justify-self: end;
+  }
+  .set-cell-actions {
+    grid-area: actions;
+    justify-self: end;
+    white-space: nowrap;
+  }
+  .set-cell-weight {
+    grid-area: weight;
+  }
+  .set-cell-reps {
+    grid-area: reps;
+  }
+  .set-cell-weight,
+  .set-cell-reps {
+    display: grid;
+    gap: 2px;
+  }
+  .field-label {
+    display: block;
+    text-align: left;
+    font-size: 0.85em;
+    color: var(--muted);
+  }
+  .stepper {
+    justify-content: stretch;
+  }
+  .stepper input[type="number"] {
+    flex: 1 1 6ch;
+  }
 }
 .heatmap {
   display: grid;
@@ -187,6 +320,7 @@ nav.tabbar a[aria-current="page"] {
 .recovery-list li {
   display: flex;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
   font-size: 0.9rem;
 }
@@ -218,6 +352,7 @@ nav.tabbar a[aria-current="page"] {
   position: sticky;
   bottom: calc(72px + var(--safe-b));
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 :focus-visible {
@@ -244,4 +379,53 @@ canvas.chart {
   font-size: 0.72rem;
   border-radius: 99px;
   padding: 2px 8px;
+}
+/* Warmup tag: text badge (never color-only) + dimmed row number cell. */
+.wu-badge {
+  display: inline-block;
+  background: #374151;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.72rem;
+  border-radius: 99px;
+  padding: 2px 8px;
+  margin-right: 4px;
+}
+/* Option A Done/Undo toggle: one big thumb target per set (spec R2). */
+.done-toggle {
+  min-height: 56px;
+  min-width: 56px;
+  font-weight: 600;
+}
+.done-toggle[aria-pressed="true"] {
+  background: var(--good);
+  border-color: transparent;
+  color: #06281c;
+}
+/* Completed-row tint: label text + aria-pressed carry state, tint is glanceability. */
+tr.set-row {
+  transition: background-color 0.2s ease;
+}
+tr.set-row[data-completed="true"] {
+  background: color-mix(in srgb, var(--good) 14%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  tr.set-row {
+    transition: none;
+  }
+}
+/* Sticky rest card: visible from any scroll position without covering the
+   Finish bar or tab bar (spec R5). */
+.rest-sticky {
+  position: sticky;
+  top: calc(8px + var(--safe-t));
+  z-index: 10;
+}
+/* Persistent "rest done" state (spec R6c). */
+.card.rest-done {
+  border-color: var(--good);
+}
+.card.rest-done .muted {
+  color: var(--text);
+  font-weight: 600;
 }
