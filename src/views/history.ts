@@ -15,7 +15,7 @@ import {
 import { sessionBestE1RM, sessionVolume } from "../lib/metrics.ts";
 import { checkPRs } from "../lib/metrics.ts";
 import { getSetsForExercise } from "../lib/store.ts";
-import { fmtDate, fmtDuration, go, h, toast } from "../lib/ui.ts";
+import { fmtDate, fmtDuration, fmtVolume, go, h, toast } from "../lib/ui.ts";
 
 export async function renderHistory(detailId?: string): Promise<HTMLElement> {
   const root = h("div", {});
@@ -32,7 +32,7 @@ export async function renderHistory(detailId?: string): Promise<HTMLElement> {
       h(
         "p",
         { class: "muted" },
-        `${fmtDate(w.startedAt)} · ${w.endedAt ? fmtDuration(w.startedAt, w.endedAt) : "—"} · ${sessionVolume(sets).toFixed(0)} kg volume`,
+        `${fmtDate(w.startedAt)} · ${w.endedAt ? fmtDuration(w.startedAt, w.endedAt) : "—"} · ${fmtVolume(sessionVolume(sets), settings.units)} volume`,
       ),
     );
     const groups = new Map<string, typeof sets>();
@@ -53,16 +53,25 @@ export async function renderHistory(detailId?: string): Promise<HTMLElement> {
         prevBest,
         sessionVolume(prev),
       );
-      const block = h(
+      const blockHeader = h(
         "div",
-        { class: "card" },
-        h(
-          "div",
-          { class: "row" },
-          h("strong", { class: "grow" }, ex?.name ?? exerciseId),
-          pr.e1rmPR ? h("span", { class: "pr-badge" }, "PR") : "",
-        ),
+        { class: "row" },
+        h("strong", { class: "grow" }, ex?.name ?? exerciseId),
+        pr.e1rmPR ? h("span", { class: "pr-badge" }, "PR") : "",
       );
+      if (ex) {
+        blockHeader.appendChild(
+          h(
+            "button",
+            {
+              "aria-label": `View ${ex.name} instructions`,
+              onclick: () => go(`/exercises/${encodeURIComponent(ex.id)}`),
+            },
+            "ⓘ Info",
+          ),
+        );
+      }
+      const block = h("div", { class: "card" }, blockHeader);
       const table = h("table", { class: "set-table" });
       table.appendChild(h("caption", { class: "sr-only" }, "Logged sets"));
       const historyBody = h("tbody", {});
@@ -170,7 +179,7 @@ export async function renderHistory(detailId?: string): Promise<HTMLElement> {
             h(
               "div",
               { class: "muted" },
-              `${fmtDate(w.startedAt)} · ${w.endedAt ? fmtDuration(w.startedAt, w.endedAt) : "—"} · ${sessionVolume(sets).toFixed(0)} kg`,
+              `${fmtDate(w.startedAt)} · ${w.endedAt ? fmtDuration(w.startedAt, w.endedAt) : "—"} · ${fmtVolume(sessionVolume(sets), settings.units)}`,
             ),
           ),
           h(

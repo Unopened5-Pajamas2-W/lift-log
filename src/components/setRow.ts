@@ -31,7 +31,7 @@ export function renderSetRow(opts: SetRowOpts): HTMLElement {
     "td",
     { class: "set-cell-num" },
     isWarmup ? h("span", { class: "wu-badge" }, "WU") : "",
-    String(index),
+    `Set ${index}`,
   );
 
   const weightInput = h("input", {

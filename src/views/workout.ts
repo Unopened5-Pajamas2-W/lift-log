@@ -179,7 +179,25 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
       ? await suggestionFor(exerciseId, ex.primaryMuscle)
       : undefined;
 
-    const card = h("div", { class: "card" }, h("strong", {}, name));
+    const card = h("div", { class: "card" });
+    const header = h(
+      "div",
+      { class: "row" },
+      h("strong", { class: "grow" }, name),
+    );
+    if (ex) {
+      header.appendChild(
+        h(
+          "button",
+          {
+            "aria-label": `View ${name} instructions`,
+            onclick: () => go(`/exercises/${encodeURIComponent(exerciseId)}`),
+          },
+          "ⓘ Info",
+        ),
+      );
+    }
+    card.appendChild(header);
     const table = h("table", { class: "set-table" });
     table.appendChild(h("caption", { class: "sr-only" }, `${name} sets`));
     table.appendChild(

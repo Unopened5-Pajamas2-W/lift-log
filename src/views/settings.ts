@@ -1,5 +1,4 @@
-/** Settings: units, equipment, rest default, backup, install help, privacy. */
-import { renderInstallHelp } from "../components/installHelp.ts";
+/** Settings: units, equipment, rest default, backup. */
 import { ALL_EQUIPMENT } from "../data/muscles.ts";
 import {
   exportJson,
@@ -327,18 +326,5 @@ export async function renderSettings(): Promise<HTMLElement> {
   );
   root.appendChild(backupCard);
 
-  root.appendChild(renderInstallHelp());
-  root.appendChild(
-    h(
-      "div",
-      { class: "card" },
-      h("strong", {}, "Privacy"),
-      h(
-        "p",
-        { class: "muted" },
-        "Your data never leaves this device except when you tap Export. No accounts, no analytics, no tracking — verified by a same-origin Content Security Policy.",
-      ),
-    ),
-  );
   return root;
 }

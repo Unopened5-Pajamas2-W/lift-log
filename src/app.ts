@@ -7,28 +7,31 @@ import { renderWorkout } from "./views/workout.ts";
 import { renderExercises } from "./views/exercises.ts";
 import { getActiveWorkout, loadSettings, saveSettings } from "./lib/store.ts";
 import { go, h } from "./lib/ui.ts";
+import { tabIcon, type TabIconName } from "./components/tabIcons.ts";
 
 const TABS = [
-  { path: "/today", label: "Today", icon: "☀" },
-  { path: "/workout", label: "Workout", icon: "🏋" },
-  { path: "/exercises", label: "Moves", icon: "📖" },
-  { path: "/history", label: "History", icon: "🕘" },
-  { path: "/progress", label: "Progress", icon: "📈" },
-  { path: "/settings", label: "Settings", icon: "⚙" },
-] as const;
+  { path: "/today", label: "Today", icon: "today" },
+  { path: "/workout", label: "Workout", icon: "workout" },
+  { path: "/exercises", label: "Moves", icon: "moves" },
+  { path: "/history", label: "History", icon: "history" },
+  { path: "/progress", label: "Progress", icon: "progress" },
+  { path: "/settings", label: "Settings", icon: "settings" },
+] as const satisfies readonly { path: string; label: string; icon: TabIconName }[];
 
 function tabbar(current: string): HTMLElement {
   const nav = h("nav", { class: "tabbar", "aria-label": "Primary" });
   for (const t of TABS) {
     const active =
       current === t.path || (t.path !== "/today" && current.startsWith(t.path));
+    const iconWrap = h("span", { class: "tab-icon", "aria-hidden": "true" });
+    iconWrap.appendChild(tabIcon(t.icon));
     const a = h(
       "a",
       {
         href: `#${t.path}`,
         ...(active ? { "aria-current": "page" } : {}),
       },
-      h("span", { "aria-hidden": "true" }, t.icon),
+      iconWrap,
       h("span", {}, t.label),
     );
     nav.appendChild(a);
@@ -145,5 +148,5 @@ export async function renderApp(shell: HTMLElement): Promise<void> {
       ),
     );
   }
-  document.getElementById("view")?.scrollIntoView({ block: "start" });
+  window.scrollTo({ top: 0 });
 }

@@ -28,7 +28,7 @@ export async function renderProgress(): Promise<HTMLElement> {
       volume: sessionVolume(setsByWorkout.get(w.id) ?? []),
     }))
     .sort((a, b) => a.t - b.t);
-  root.appendChild(renderVolumeChart(points));
+  root.appendChild(renderVolumeChart(points, settings.units));
 
   // PR feed: first log + best e1RM per exercise, most recent first.
   const byExercise = new Map<string, typeof sets>();
@@ -64,8 +64,22 @@ export async function renderProgress(): Promise<HTMLElement> {
       h("p", { class: "muted" }, "No PRs yet — finish a workout."),
     );
   else {
-    const ul = h("ul", {});
-    for (const r of rows.slice(0, 30)) ul.appendChild(h("li", {}, r.text));
+    const ul = h("ul", { class: "pr-list" });
+    for (const r of rows.slice(0, 30)) {
+      const sep = r.text.indexOf(": ");
+      if (sep < 0) {
+        ul.appendChild(h("li", {}, r.text));
+        continue;
+      }
+      ul.appendChild(
+        h(
+          "li",
+          {},
+          h("span", {}, r.text.slice(0, sep)),
+          h("span", { class: "pr-meta" }, r.text.slice(sep + 2)),
+        ),
+      );
+    }
     feed.appendChild(ul);
   }
   root.appendChild(feed);

@@ -1,30 +1,32 @@
 /** Lift Log styles: system font, safe-area, dark-first, 44pt targets. No frameworks. */
 :root {
-  color-scheme: light dark;
-  --bg: #111827;
-  --bg-soft: #1f2937;
-  --card: #1f2937;
-  --text: #f9fafb;
-  --muted: #9ca3af;
-  --accent: #60a5fa;
-  --good: #34d399;
-  --warn: #fbbf24;
-  --bad: #f87171;
-  --border: #374151;
+  color-scheme: light;
+  --bg: #f9fafb;
+  --bg-soft: #ffffff;
+  --card: #ffffff;
+  --text: #111827;
+  --muted: #5b6472;
+  --accent: #1d4ed8;
+  --accent-ink: #ffffff;
+  --good: #047857;
+  --good-ink: #ffffff;
+  --warn: #b45309;
+  --bad: #dc2626;
+  --border: #e5e7eb;
   --radius: 12px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
-}
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f9fafb;
-    --bg-soft: #ffffff;
-    --card: #ffffff;
-    --text: #111827;
-    --muted: #6b7280;
-    --accent: #2563eb;
-    --border: #e5e7eb;
-  }
+  --tabbar-h: 68px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 14px;
+  --space-5: 16px;
+  --text-title: 1.375rem;
+  --text-card-title: 1.0625rem;
+  --text-body: 1rem;
+  --text-caption: 0.8125rem;
+  --text-tab: 0.6875rem;
 }
 * {
   box-sizing: border-box;
@@ -54,7 +56,8 @@ body {
 #app {
   max-width: 640px;
   margin: 0 auto;
-  padding: calc(12px + var(--safe-t)) 12px calc(96px + var(--safe-b));
+  padding: calc(12px + var(--safe-t)) 12px
+    calc(var(--tabbar-h) + var(--safe-b) + 16px);
 }
 header.topbar {
   display: flex;
@@ -65,18 +68,24 @@ header.topbar {
   padding: 8px 4px 12px;
 }
 header.topbar h1 {
-  font-size: 1.25rem;
+  font-size: var(--text-title);
+  font-weight: 800;
+  letter-spacing: -0.01em;
   margin: 0;
 }
 main {
   display: grid;
-  gap: 12px;
+  gap: var(--space-5);
 }
 .card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 12px;
+  padding: var(--space-5);
+  box-shadow: 0 1px 2px rgb(17 24 39 / 0.05);
+}
+.card > strong:first-child {
+  font-size: var(--text-card-title);
 }
 .muted {
   color: var(--muted);
@@ -109,8 +118,14 @@ button {
 button.primary {
   background: var(--accent);
   border-color: transparent;
-  color: #fff;
+  color: var(--accent-ink);
   font-weight: 600;
+}
+button.primary:active {
+  filter: brightness(0.92);
+}
+button:not(.primary):not(.danger):active {
+  background: var(--border);
 }
 button.danger {
   border-color: var(--bad);
@@ -163,28 +178,49 @@ nav.tabbar {
   z-index: 20;
   display: grid;
   grid-template-columns: repeat(6, 1fr);
+  height: calc(var(--tabbar-h) + var(--safe-b));
   padding-bottom: var(--safe-b);
   background: var(--bg-soft);
   border-top: 1px solid var(--border);
 }
 nav.tabbar a {
+  position: relative;
   display: grid;
   place-items: center;
   align-content: center;
-  min-height: 56px;
-  min-width: 0;
-  padding: 4px 2px;
+  min-height: 64px;
+  min-width: 44px;
+  padding: 6px 2px 4px;
   color: var(--muted);
   text-decoration: none;
-  font-size: 0.72rem;
+  font-size: var(--text-tab);
   line-height: 1.2;
   text-align: center;
-  overflow-wrap: anywhere;
-  gap: 2px;
+  gap: 3px;
+}
+nav.tabbar a .tab-icon {
+  width: 26px;
+  height: 26px;
+  display: block;
+}
+nav.tabbar a .tab-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 nav.tabbar a[aria-current="page"] {
   color: var(--accent);
   font-weight: 700;
+}
+nav.tabbar a[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 22%;
+  right: 22%;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--accent);
 }
 .table-wrap {
   overflow-x: auto;
@@ -253,11 +289,10 @@ nav.tabbar a[aria-current="page"] {
     grid-template-columns: 1fr auto auto;
     grid-template-areas:
       "num done actions"
-      "weight weight weight"
-      "reps reps reps";
+      "weight weight reps";
     gap: 4px 8px;
     align-items: center;
-    padding: 10px 0;
+    padding: 6px 0;
     border-bottom: 1px solid var(--border);
   }
   .set-table tr.set-row > td {
@@ -282,9 +317,11 @@ nav.tabbar a[aria-current="page"] {
   }
   .set-cell-weight {
     grid-area: weight;
+    min-width: 0;
   }
   .set-cell-reps {
     grid-area: reps;
+    min-width: 0;
   }
   .set-cell-weight,
   .set-cell-reps {
@@ -299,10 +336,19 @@ nav.tabbar a[aria-current="page"] {
   }
   .stepper {
     justify-content: stretch;
+    flex-wrap: nowrap;
   }
   .stepper input[type="number"] {
-    flex: 1 1 6ch;
+    flex: 1 1 auto;
+    min-width: 0;
   }
+  .set-cell-actions button {
+    color: var(--muted);
+  }
+}
+input::placeholder {
+  color: var(--muted);
+  opacity: 1;
 }
 .heatmap {
   display: grid;
@@ -310,19 +356,60 @@ nav.tabbar a[aria-current="page"] {
   gap: 12px;
   align-items: start;
 }
+.body-map-label {
+  font-size: 7px;
+  font-weight: 800;
+  fill: #ffffff;
+  stroke: rgb(17 24 39 / 0.55);
+  stroke-width: 2px;
+  paint-order: stroke;
+}
+.rec-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: var(--text-caption);
+  color: var(--muted);
+}
+.rec-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.rec-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  display: inline-block;
+}
 .recovery-list {
   list-style: none;
   margin: 8px 0 0;
   padding: 0;
   display: grid;
-  gap: 6px;
+  gap: 10px;
 }
 .recovery-list li {
   display: flex;
   justify-content: space-between;
-  flex-wrap: wrap;
+  align-items: baseline;
   gap: 8px;
   font-size: 0.9rem;
+}
+.recovery-list li.rec-row {
+  display: grid;
+  gap: 6px;
+}
+.rec-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rec-steppers {
+  display: flex;
+  gap: 8px;
 }
 .bar {
   height: 8px;
@@ -341,7 +428,7 @@ nav.tabbar a[aria-current="page"] {
   position: fixed;
   left: 12px;
   right: 12px;
-  bottom: calc(76px + var(--safe-b));
+  bottom: calc(var(--tabbar-h) + var(--safe-b) + 8px);
   z-index: 50;
   background: var(--card);
   border: 1px solid var(--border);
@@ -350,7 +437,7 @@ nav.tabbar a[aria-current="page"] {
 }
 .sticky-actions {
   position: sticky;
-  bottom: calc(72px + var(--safe-b));
+  bottom: calc(var(--tabbar-h) + var(--safe-b) + 8px);
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -371,10 +458,34 @@ canvas.chart {
   height: 180px;
   display: block;
 }
+.chart-caption {
+  font-size: var(--text-caption);
+  color: var(--muted);
+  margin: 6px 0 0;
+}
+.pr-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.pr-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+.pr-list .pr-meta {
+  color: var(--muted);
+  font-size: var(--text-caption);
+  white-space: nowrap;
+}
 .pr-badge {
   display: inline-block;
   background: var(--good);
-  color: #06281c;
+  color: var(--good-ink);
   font-weight: 700;
   font-size: 0.72rem;
   border-radius: 99px;
@@ -383,8 +494,8 @@ canvas.chart {
 /* Warmup tag: text badge (never color-only) + dimmed row number cell. */
 .wu-badge {
   display: inline-block;
-  background: #374151;
-  color: var(--muted);
+  background: #e5e7eb;
+  color: #4b5563;
   font-weight: 700;
   font-size: 0.72rem;
   border-radius: 99px;
@@ -400,14 +511,15 @@ canvas.chart {
 .done-toggle[aria-pressed="true"] {
   background: var(--good);
   border-color: transparent;
-  color: #06281c;
+  color: var(--good-ink);
 }
 /* Completed-row tint: label text + aria-pressed carry state, tint is glanceability. */
 tr.set-row {
   transition: background-color 0.2s ease;
 }
 tr.set-row[data-completed="true"] {
-  background: color-mix(in srgb, var(--good) 14%, transparent);
+  background: rgb(4 120 87 / 0.1);
+  background: color-mix(in srgb, var(--good) 12%, transparent);
 }
 @media (prefers-reduced-motion: reduce) {
   tr.set-row {

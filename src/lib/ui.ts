@@ -1,4 +1,6 @@
 /** Tiny DOM + UX helpers. No dependencies. */
+import { LB_PER_KG } from "./units.ts";
+import type { Units } from "./types.ts";
 
 /** Create an element with attrs/children in one call. */
 export function h<K extends keyof HTMLElementTagNameMap>(
@@ -55,6 +57,12 @@ export function fmtTime(ms: number): string {
 export function fmtDuration(startMs: number, endMs: number): string {
   const min = Math.max(1, Math.round((endMs - startMs) / 60_000));
   return min >= 60 ? `${Math.floor(min / 60)}h ${min % 60}m` : `${min} min`;
+}
+
+/** Format a summed volume (canonical kg) in display units, rounded whole. */
+export function fmtVolume(volumeKg: number, units: Units): string {
+  const v = units === "kg" ? volumeKg : volumeKg * LB_PER_KG;
+  return `${Math.round(v).toLocaleString("en-US")} ${units}`;
 }
 
 export function debounce<F extends (...args: never[]) => void>(

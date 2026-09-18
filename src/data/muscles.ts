@@ -87,48 +87,116 @@ export const ALL_EQUIPMENT: Equipment[] = [
   "other",
 ];
 
-/** Simple front/back figure coordinates for the SVG heatmap (viewBox 0 0 100 200). */
+/** Body backdrop silhouettes (base tone) + head per side.
+ * viewBox 0 0 100 200. Muscles render on top, slightly inset. */
+export const BODY_BASE: { side: "front" | "back"; path: string }[] = [
+  {
+    side: "front",
+    path:
+      "M50,4 m-8,0 a8,9 0 1,0 16,0 a8,9 0 1,0 -16,0 z " +
+      "M28,32 q22,-9 44,0 l5,5 q4,32 -1,72 l-5,58 q0,9 -8,9 q-7,0 -7,-9 l-2,-45 h-8 l-2,45 q0,9 -7,9 q-8,0 -8,-9 l-5,-58 q-5,-40 -1,-72 z",
+  },
+  {
+    side: "back",
+    path:
+      "M50,4 m-8,0 a8,9 0 1,0 16,0 a8,9 0 1,0 -16,0 z " +
+      "M28,32 q22,-9 44,0 l5,5 q4,32 -1,72 l-5,58 q0,9 -8,9 q-7,0 -7,-9 l-2,-45 h-8 l-2,45 q0,9 -7,9 q-8,0 -8,-9 l-5,-58 q-5,-40 -1,-72 z",
+  },
+];
+
+/** Simple front/back figure coordinates for the SVG heatmap (viewBox 0 0 100 200).
+ * Rounded muscle bellies with deltoid caps overlapping the torso.
+ * `lx/ly` is the % label anchor. `fullbody` has no shape: it is list-only
+ * (aggregate of all regions) and never silently dropped from the list. */
 export const MUSCLE_SHAPES: {
   muscle: MuscleGroup;
   side: "front" | "back";
   path: string;
+  lx: number;
+  ly: number;
 }[] = [
-  { muscle: "chest", side: "front", path: "M32,42 h36 v22 h-36 z" },
+  {
+    muscle: "chest",
+    side: "front",
+    path: "M31,42 h38 v16 q0,8 -8,8 h-22 q-8,0 -8,-8 z",
+    lx: 50,
+    ly: 55,
+  },
   {
     muscle: "shoulders",
     side: "front",
-    path: "M24,40 a8,8 0 0 1 12,-4 M64,36 a8,8 0 0 1 12,4",
+    path:
+      "M20,42 q-3,9 1,18 q3,3 7,0 q3,-9 -1,-18 q-3,-3 -7,0 z " +
+      "M73,42 q-3,9 1,18 q3,3 7,0 q3,-9 -1,-18 q-3,-3 -7,0 z",
+    lx: 50,
+    ly: 40,
   },
   {
     muscle: "biceps",
     side: "front",
-    path: "M22,52 h10 v22 h-10 z M68,52 h10 v22 h-10 z",
+    path:
+      "M22,62 h8 v18 q0,4 -4,4 q-4,0 -4,-4 z " +
+      "M70,62 h8 v18 q0,4 -4,4 q-4,0 -4,-4 z",
+    lx: 50,
+    ly: 72,
   },
-  { muscle: "core", side: "front", path: "M38,66 h24 v34 h-24 z" },
+  {
+    muscle: "core",
+    side: "front",
+    path: "M38,70 h24 v28 q0,6 -6,6 h-12 q-6,0 -6,-6 z",
+    lx: 50,
+    ly: 86,
+  },
   {
     muscle: "quads",
     side: "front",
-    path: "M34,102 h12 v38 h-12 z M54,102 h12 v38 h-12 z",
+    path:
+      "M33,104 h13 v32 q0,6 -6,6 q-6,0 -6,-6 z " +
+      "M54,104 h13 v32 q0,6 -6,6 q-6,0 -6,-6 z",
+    lx: 50,
+    ly: 122,
   },
   {
     muscle: "calves",
     side: "front",
-    path: "M36,150 h10 v24 h-10 z M54,150 h10 v24 h-10 z",
+    path:
+      "M35,150 h11 v20 q0,5 -5,5 q-5,0 -5,-5 z " +
+      "M54,150 h11 v20 q0,5 -5,5 q-5,0 -5,-5 z",
+    lx: 50,
+    ly: 162,
   },
-  { muscle: "back", side: "back", path: "M32,42 h36 v30 h-36 z" },
+  {
+    muscle: "back",
+    side: "back",
+    path: "M31,42 h38 v26 q0,8 -8,8 h-22 q-8,0 -8,-8 z",
+    lx: 50,
+    ly: 57,
+  },
   {
     muscle: "triceps",
     side: "back",
-    path: "M22,52 h10 v22 h-10 z M68,52 h10 v22 h-10 z",
+    path:
+      "M22,62 h8 v18 q0,4 -4,4 q-4,0 -4,-4 z " +
+      "M70,62 h8 v18 q0,4 -4,4 q-4,0 -4,-4 z",
+    lx: 50,
+    ly: 72,
   },
   {
     muscle: "glutes",
     side: "back",
-    path: "M34,76 h12 v18 h-12 z M54,76 h12 v18 h-12 z",
+    path:
+      "M33,76 h13 v15 q0,5 -6,5 q-6,0 -6,-5 z " +
+      "M54,76 h13 v15 q0,5 -6,5 q-6,0 -6,-5 z",
+    lx: 50,
+    ly: 86,
   },
   {
     muscle: "hamstrings",
     side: "back",
-    path: "M34,96 h12 v34 h-12 z M54,96 h12 v34 h-12 z",
+    path:
+      "M33,96 h13 v34 q0,6 -6,6 q-6,0 -6,-6 z " +
+      "M54,96 h13 v34 q0,6 -6,6 q-6,0 -6,-6 z",
+    lx: 50,
+    ly: 115,
   },
 ];
