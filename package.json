@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "description": "Local-first iOS weight-lifting workout PWA (FitBod-lite, zero runtime deps)",
   "type": "module",
+  "engines": {
+    "node": ">=22.19.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
