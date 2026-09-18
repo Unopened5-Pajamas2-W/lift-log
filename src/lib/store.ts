@@ -1,14 +1,5 @@
-/** Persistent store: IndexedDB CRUD, seed import, singleton active workout. */
-import {
-  deleteOne,
-  getAll,
-  getAllByIndex,
-  getOne,
-  openDb,
-  putAll,
-  putOne,
-  runTx,
-} from "./db.ts";
+/** Persistent store: IndexedDB CRUD (via idb), seed import, singleton active workout. */
+import { openDB, type IDBPDatabase, type IDBPTransaction } from "idb";
 import { validateRestore } from "./backup.ts";
 import type { RestoreResult, ValidRow } from "./backup.ts";
 import { ALL_EQUIPMENT } from "../data/muscles.ts";
@@ -22,7 +13,7 @@ import type {
   Workout,
   WorkoutSet,
 } from "./types.ts";
-import { DB_NAME, SCHEMA_VERSION } from "./types.ts";
+import { DB_NAME, SCHEMA_VERSION, type LiftLogDB } from "./types.ts";
 
 export const STORES = [
   "exercises",
@@ -33,10 +24,12 @@ export const STORES = [
   "meta",
 ] as const;
 
-let dbPromise: Promise<IDBDatabase> | null = null;
-let liveDb: IDBDatabase | null = null;
+type Db = IDBPDatabase<LiftLogDB>;
 
-function upgradeDb(db: IDBDatabase): void {
+let dbPromise: Promise<Db> | null = null;
+let liveDb: Db | null = null;
+
+function upgradeDb(db: Db): void {
   if (!db.objectStoreNames.contains("exercises")) {
     const os = db.createObjectStore("exercises", { keyPath: "id" });
     os.createIndex("by-muscle", "primaryMuscle", { unique: false });
@@ -59,10 +52,26 @@ function upgradeDb(db: IDBDatabase): void {
     db.createObjectStore("meta", { keyPath: "id" });
 }
 
-export function getDb(): Promise<IDBDatabase> {
+const BLOCKED_MESSAGE =
+  "Close other Lift Log tabs to finish the upgrade, then reload.";
+
+export function getDb(): Promise<Db> {
   if (!dbPromise) {
-    dbPromise = openDb(DB_NAME, SCHEMA_VERSION, (db) => upgradeDb(db)).then(
-      (db) => {
+    // The old wrapper rejected the open when a versionchange was blocked;
+    // idb only notifies, so race the open against the blocked signal to
+    // preserve that fail-fast behavior.
+    let signalBlocked: ((err: Error) => void) | null = null;
+    const blockedSignal = new Promise<never>((_, reject) => {
+      signalBlocked = reject;
+    });
+    // async fn converts idb's possible synchronous throw into a rejection.
+    const open = async (): Promise<Db> =>
+      openDB<LiftLogDB>(DB_NAME, SCHEMA_VERSION, {
+        upgrade: (db) => upgradeDb(db),
+        blocked: () => signalBlocked?.(new Error(BLOCKED_MESSAGE)),
+      });
+    dbPromise = Promise.race([open(), blockedSignal])
+      .then((db) => {
         liveDb = db;
         db.onversionchange = () => {
           db.close();
@@ -70,14 +79,13 @@ export function getDb(): Promise<IDBDatabase> {
           dbPromise = null;
         };
         return db;
-      },
-      (err) => {
+      })
+      .catch((err: unknown) => {
         // Never cache a rejection: the next caller retries the open.
         dbPromise = null;
         liveDb = null;
         throw err;
-      },
-    );
+      });
   }
   return dbPromise;
 }
@@ -91,6 +99,40 @@ export function __resetDbConnection(): void {
   }
   liveDb = null;
   dbPromise = null;
+}
+
+type Tx = IDBPTransaction<LiftLogDB, (typeof STORES)[number][], "readwrite">;
+
+function noop(): void {}
+
+/** Queue writes across stores in one transaction and await its commit.
+ *  fn must pass each queued request promise to track(); on rollback the
+ *  AbortError rejections of already-queued requests are swallowed. */
+async function writeTx(
+  db: Db,
+  storeNames: readonly (typeof STORES)[number][],
+  fn: (tx: Tx, track: <T>(p: Promise<T>) => Promise<T>) => void,
+): Promise<void> {
+  const tx = db.transaction([...storeNames], "readwrite");
+  const pending: Promise<unknown>[] = [];
+  const track = <T,>(p: Promise<T>): Promise<T> => {
+    pending.push(p);
+    return p;
+  };
+  const done = tx.done;
+  try {
+    fn(tx as unknown as Tx, track);
+    await done;
+  } catch (err) {
+    done.catch(noop);
+    for (const p of pending) p.catch(noop);
+    try {
+      tx.abort();
+    } catch {
+      /* already aborted or committed */
+    }
+    throw err;
+  }
 }
 
 export function uuid(): string {
@@ -119,7 +161,7 @@ export async function ensureSeeded(): Promise<void> {
   // never a silent overwrite here.
   const now = Date.now();
   const exerciseIds = new Set(
-    (await getAll<{ id: string }>(db, "exercises")).map((e) => e.id),
+    (await db.getAll("exercises")).map((e) => e.id),
   );
   const missingExercises: Exercise[] = (
     seedExercises as Omit<
@@ -135,9 +177,12 @@ export async function ensureSeeded(): Promise<void> {
       createdAt: now,
       updatedAt: now,
     }));
-  await putAll(db, "exercises", missingExercises);
+  await writeTx(db, ["exercises"], (tx, track) => {
+    const os = tx.objectStore("exercises");
+    for (const e of missingExercises) void track(os.put(e));
+  });
   const templateIds = new Set(
-    (await getAll<{ id: string }>(db, "templates")).map((t) => t.id),
+    (await db.getAll("templates")).map((t) => t.id),
   );
   const missingTemplates: Template[] = (
     seedTemplates as Omit<Template, "createdAt" | "updatedAt">[]
@@ -148,12 +193,15 @@ export async function ensureSeeded(): Promise<void> {
       createdAt: now,
       updatedAt: now,
     }));
-  await putAll(db, "templates", missingTemplates);
-  const settings = await getOne<Settings>(db, "settings", "app");
-  if (!settings) await putOne(db, "settings", defaultSettings());
-  const meta = await getOne(db, "meta", "meta");
+  await writeTx(db, ["templates"], (tx, track) => {
+    const os = tx.objectStore("templates");
+    for (const t of missingTemplates) void track(os.put(t));
+  });
+  const settings = await db.get("settings", "app");
+  if (!settings) await db.put("settings", defaultSettings());
+  const meta = await db.get("meta", "meta");
   if (!meta)
-    await putOne(db, "meta", { id: "meta", schemaVersion: SCHEMA_VERSION });
+    await db.put("meta", { id: "meta", schemaVersion: SCHEMA_VERSION });
   try {
     if (typeof navigator !== "undefined" && navigator.storage?.persist)
       await navigator.storage.persist();
@@ -165,7 +213,7 @@ export async function ensureSeeded(): Promise<void> {
 // --- settings ---
 export async function loadSettings(): Promise<Settings> {
   const db = await getDb();
-  const s = await getOne<Settings>(db, "settings", "app");
+  const s = await db.get("settings", "app");
   // Additive defaults: pre-existing settings rows gain new fields (barWeightKg)
   // without a migration.
   return { ...defaultSettings(), ...s, id: "app" as const };
@@ -175,10 +223,9 @@ export async function saveSettings(
   patch: Partial<Settings>,
 ): Promise<Settings> {
   const db = await getDb();
-  const cur =
-    (await getOne<Settings>(db, "settings", "app")) ?? defaultSettings();
+  const cur = (await db.get("settings", "app")) ?? defaultSettings();
   const next = { ...cur, ...patch, id: "app" as const };
-  await putOne(db, "settings", next);
+  await db.put("settings", next);
   return next;
 }
 
@@ -187,19 +234,19 @@ export async function listExercises(
   includeArchived = false,
 ): Promise<Exercise[]> {
   const db = await getDb();
-  const all = await getAll<Exercise>(db, "exercises");
+  const all = await db.getAll("exercises");
   const list = includeArchived ? all : all.filter((e) => !e.isArchived);
   return list.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function getExercise(id: string): Promise<Exercise | undefined> {
   const db = await getDb();
-  return getOne<Exercise>(db, "exercises", id);
+  return db.get("exercises", id);
 }
 
 export async function saveExercise(ex: Exercise): Promise<void> {
   const db = await getDb();
-  await putOne(db, "exercises", ex);
+  await db.put("exercises", ex);
 }
 
 export async function archiveExercise(
@@ -231,7 +278,7 @@ export async function searchExercises(
 // --- workouts + sets ---
 export async function getActiveWorkout(): Promise<Workout | undefined> {
   const db = await getDb();
-  const all = await getAll<Workout>(db, "workouts");
+  const all = await db.getAll("workouts");
   return all.find((w) => w.status === "active");
 }
 
@@ -296,19 +343,17 @@ async function startWorkoutInner(input: {
     }
   }
   // Single transaction: a crash leaves no phantom-empty workout behind.
-  await runTx(db, ["workouts", "sets"], "readwrite", (tx) => {
-    tx.objectStore("workouts").put(workout);
-    if (sets.length > 0) {
-      const os = tx.objectStore("sets");
-      for (const s of sets) os.put(s);
-    }
+  await writeTx(db, ["workouts", "sets"], (tx, track) => {
+    void track(tx.objectStore("workouts").put(workout));
+    const setsOs = tx.objectStore("sets");
+    for (const s of sets) void track(setsOs.put(s));
   });
   return workout;
 }
 
 export async function getWorkout(id: string): Promise<Workout | undefined> {
   const db = await getDb();
-  return getOne<Workout>(db, "workouts", id);
+  return db.get("workouts", id);
 }
 
 export async function listWorkouts(
@@ -316,14 +361,14 @@ export async function listWorkouts(
   limit = 200,
 ): Promise<Workout[]> {
   const db = await getDb();
-  const all = await getAll<Workout>(db, "workouts");
+  const all = await db.getAll("workouts");
   const list = status ? all.filter((w) => w.status === status) : all;
   return list.sort((a, b) => b.startedAt - a.startedAt).slice(0, limit);
 }
 
 export async function updateWorkout(patch: Workout): Promise<void> {
   const db = await getDb();
-  await putOne(db, "workouts", patch);
+  await db.put("workouts", patch);
 }
 
 export async function finishWorkout(id: string): Promise<void> {
@@ -340,23 +385,18 @@ export async function discardWorkout(id: string): Promise<void> {
 
 export async function deleteWorkout(id: string): Promise<void> {
   const db = await getDb();
-  const sets = await getAllByIndex<WorkoutSet>(db, "sets", "by-workoutId", id);
+  const sets = await db.getAllFromIndex("sets", "by-workoutId", id);
   // Single transaction: never strand orphan sets on crash.
-  await runTx(db, ["workouts", "sets"], "readwrite", (tx) => {
-    tx.objectStore("workouts").delete(id);
-    const os = tx.objectStore("sets");
-    for (const s of sets) os.delete(s.id);
+  await writeTx(db, ["workouts", "sets"], (tx, track) => {
+    void track(tx.objectStore("workouts").delete(id));
+    const setsOs = tx.objectStore("sets");
+    for (const s of sets) void track(setsOs.delete(s.id));
   });
 }
 
 export async function getSets(workoutId: string): Promise<WorkoutSet[]> {
   const db = await getDb();
-  const sets = await getAllByIndex<WorkoutSet>(
-    db,
-    "sets",
-    "by-workoutId",
-    workoutId,
-  );
+  const sets = await db.getAllFromIndex("sets", "by-workoutId", workoutId);
   return sets.sort((a, b) => a.order - b.order);
 }
 
@@ -364,57 +404,52 @@ export async function getSetsForExercise(
   exerciseId: string,
 ): Promise<WorkoutSet[]> {
   const db = await getDb();
-  const sets = await getAllByIndex<WorkoutSet>(
-    db,
-    "sets",
-    "by-exerciseId",
-    exerciseId,
-  );
+  const sets = await db.getAllFromIndex("sets", "by-exerciseId", exerciseId);
   return sets.sort((a, b) => a.createdAt - b.createdAt);
 }
 
 export async function upsertSet(set: WorkoutSet): Promise<void> {
   const db = await getDb();
-  await putOne(db, "sets", set);
+  await db.put("sets", set);
 }
 
 export async function deleteSet(id: string): Promise<void> {
   const db = await getDb();
-  await deleteOne(db, "sets", id);
+  await db.delete("sets", id);
 }
 
 export async function allCompletedSets(): Promise<WorkoutSet[]> {
   const db = await getDb();
-  const workouts = await getAll<Workout>(db, "workouts");
+  const workouts = await db.getAll("workouts");
   const done = new Set(
     workouts.filter((w) => w.status === "completed").map((w) => w.id),
   );
-  const sets = await getAll<WorkoutSet>(db, "sets");
+  const sets = await db.getAll("sets");
   return sets.filter((s) => done.has(s.workoutId) && s.completed);
 }
 
 // --- templates ---
 export async function listTemplates(): Promise<Template[]> {
   const db = await getDb();
-  const all = await getAll<Template>(db, "templates");
+  const all = await db.getAll("templates");
   return all.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function saveTemplate(t: Template): Promise<void> {
   const db = await getDb();
-  await putOne(db, "templates", t);
+  await db.put("templates", t);
 }
 
 export async function deleteTemplate(id: string): Promise<void> {
   const db = await getDb();
-  await deleteOne(db, "templates", id);
+  await db.delete("templates", id);
 }
 
 /** Full dump for backup export (v2: preserve unknown fields). */
 export async function dumpAll(): Promise<Record<string, unknown[]>> {
   const db = await getDb();
   const out: Record<string, unknown[]> = {};
-  for (const s of STORES) out[s] = await getAll(db, s);
+  for (const s of STORES) out[s] = await db.getAll(s);
   return out;
 }
 
@@ -438,7 +473,10 @@ export async function restoreAll(
   for (const s of STORES) {
     const rows = valid[s];
     if (!rows || rows.length === 0) continue;
-    const existing = await getAll<{ id: string; updatedAt?: unknown }>(db, s);
+    const existing = (await db.getAll(s)) as unknown as {
+      id: string;
+      updatedAt?: unknown;
+    }[];
     const byId = new Map(existing.map((e) => [e.id, e]));
     const writes: ValidRow[] = [];
     for (const row of rows) {
@@ -468,10 +506,11 @@ export async function restoreAll(
     (s) => (toWrite[s]?.length ?? 0) > 0,
   );
   if (targets.length > 0) {
-    await runTx(db, targets, "readwrite", (tx) => {
+    await writeTx(db, targets, (tx, track) => {
       for (const s of targets) {
+        // ValidRow passes unknown fields through; keyPath id is validated upstream.
         const os = tx.objectStore(s);
-        for (const row of toWrite[s] ?? []) os.put(row);
+        for (const row of toWrite[s] ?? []) void track(os.put(row as never));
       }
     });
   }
@@ -480,7 +519,7 @@ export async function restoreAll(
 
 export async function wipeAll(): Promise<void> {
   const db = await getDb();
-  await runTx(db, [...STORES], "readwrite", (tx) => {
-    for (const s of STORES) tx.objectStore(s).clear();
+  await writeTx(db, STORES, (tx, track) => {
+    for (const s of STORES) void track(tx.objectStore(s).clear());
   });
 }

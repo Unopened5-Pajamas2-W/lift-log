@@ -65,7 +65,10 @@ export async function renderHistory(detailId?: string): Promise<HTMLElement> {
             "button",
             {
               "aria-label": `View ${ex.name} instructions`,
-              onclick: () => go(`/exercises/${encodeURIComponent(ex.id)}`),
+              onclick: () =>
+                go(
+                  `/exercises/${encodeURIComponent(ex.id)}?from=${encodeURIComponent(`/history/${w.id}`)}`,
+                ),
             },
             "ⓘ Info",
           ),

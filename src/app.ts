@@ -5,6 +5,7 @@ import { renderSettings } from "./views/settings.ts";
 import { renderToday } from "./views/today.ts";
 import { renderWorkout } from "./views/workout.ts";
 import { renderExercises } from "./views/exercises.ts";
+import { renderExerciseProgress } from "./views/exerciseProgress.ts";
 import { getActiveWorkout, loadSettings, saveSettings } from "./lib/store.ts";
 import { go, h } from "./lib/ui.ts";
 import { tabIcon, type TabIconName } from "./components/tabIcons.ts";
@@ -74,7 +75,12 @@ function titles(path: string): string {
 
 export async function renderApp(shell: HTMLElement): Promise<void> {
   const raw = location.hash.replace(/^#/, "") || "/today";
-  const path = raw.startsWith("/") ? raw : "/today";
+  // Query string (e.g. the exercises detail's ?from= return path) is not part
+  // of the route path; exercise/detail ids never contain "?".
+  const qIndex = raw.indexOf("?");
+  const rawPath = qIndex === -1 ? raw : raw.slice(0, qIndex);
+  const path = rawPath.startsWith("/") ? rawPath : "/today";
+  const query = new URLSearchParams(qIndex === -1 ? "" : raw.slice(qIndex + 1));
 
   const settings = await loadSettings();
   shell.replaceChildren();
@@ -111,12 +117,22 @@ export async function renderApp(shell: HTMLElement): Promise<void> {
       view.appendChild(
         await renderExercises(
           decodeURIComponent(path.slice("/exercises/".length)),
+          // ?from= marks the view to return to from the detail Back button.
+          query.get("from") ?? undefined,
         ),
       );
     else if (path === "/history") view.appendChild(await renderHistory());
     else if (path.startsWith("/history/"))
       view.appendChild(
         await renderHistory(decodeURIComponent(path.slice("/history/".length))),
+      );
+    else if (path.startsWith("/progress/exercise/"))
+      view.appendChild(
+        await renderExerciseProgress(
+          decodeURIComponent(path.slice("/progress/exercise/".length)),
+          // ?from= marks the view to return to from the drill-in Back button.
+          query.get("from") ?? "/progress",
+        ),
       );
     else if (path === "/progress") view.appendChild(await renderProgress());
     else if (path === "/settings") view.appendChild(await renderSettings());

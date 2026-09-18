@@ -2,8 +2,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildWarmupSets,
+  freshnessScore,
   generateWorkout,
   groupWorkingSessions,
+  rankSubstitutes,
+  recoveryBandPoints,
   suggestNextWeight,
   STALE_DAYS,
 } from "../../src/lib/suggest.ts";
@@ -264,9 +267,9 @@ describe("warmups", () => {
       expect(wu[0]).toMatchObject({ weightKg: 12, reps: 8 });
       expect(wu[1]).toMatchObject({ weightKg: 17, reps: 3 });
       // Working sets follow the warmups.
-      expect(
-        warmed[0]?.sets.filter((s) => s.isWarmup !== true),
-      ).toHaveLength(3);
+      expect(warmed[0]?.sets.filter((s) => s.isWarmup !== true)).toHaveLength(
+        3,
+      );
     }
   });
 
@@ -380,5 +383,161 @@ describe("generateWorkout", () => {
     expect(generateWorkout({ ...base }).items).toEqual(
       generateWorkout({ ...base }).items,
     );
+  });
+});
+
+describe("rankSubstitutes", () => {
+  const NOW = 1_800_000_000_000;
+  const DAY = 86_400_000;
+
+  function ex(
+    id: string,
+    primaryMuscle: MuscleGroup,
+    opts: Partial<Exercise> = {},
+  ): Exercise {
+    return {
+      ...fakeExercise(id, primaryMuscle, opts.equipment ?? "dumbbell"),
+      ...opts,
+    };
+  }
+
+  const outgoing = ex("out", "chest", { secondaryMuscles: ["triceps"] });
+  const owned: Exercise["equipment"][] = ["dumbbell"];
+
+  function rank(library: Exercise[], inWorkout: string[] = [], limit?: number) {
+    return rankSubstitutes({
+      outgoing,
+      library,
+      ownedEquipment: owned,
+      inWorkout: new Set(inWorkout),
+      recovery: fullRecovery,
+      lastDoneAt: new Map(),
+      now: NOW,
+      ...(limit != null ? { limit } : {}),
+    }).map((c) => c.exercise.id);
+  }
+
+  it("filters archived, already-in-workout, and unowned equipment; bodyweight always eligible", () => {
+    expect(
+      rank(
+        [
+          ex("a-archived", "chest", { isArchived: true }),
+          ex("b-inworkout", "chest"),
+          ex("c-unowned", "chest", { equipment: "barbell" }),
+          ex("d-bodyweight", "chest", { equipment: "bodyweight" }),
+          ex("e-owned", "chest"),
+        ],
+        ["b-inworkout"],
+      ),
+      // Identical structural scores → id tie-break.
+    ).toEqual(["d-bodyweight", "e-owned"]);
+  });
+
+  it("orders same muscle > pattern+overlap > pattern-only > generic", () => {
+    expect(
+      rank([
+        ex("generic-quads", "quads"),
+        ex("pattern-shoulders", "shoulders"),
+        ex("overlap-triceps", "shoulders", { secondaryMuscles: ["triceps"] }),
+        ex("same-chest", "chest"),
+      ]),
+    ).toEqual([
+      "same-chest",
+      "overlap-triceps",
+      "pattern-shoulders",
+      "generic-quads",
+    ]);
+  });
+
+  it("secondary overlap caps at +20", () => {
+    const wide = ex("out-wide", "chest", {
+      secondaryMuscles: ["triceps", "biceps", "back"],
+    });
+    const run = (library: Exercise[]): string[] =>
+      rankSubstitutes({
+        outgoing: wide,
+        library,
+        ownedEquipment: owned,
+        inWorkout: new Set<string>(),
+        recovery: fullRecovery,
+        lastDoneAt: new Map(),
+        now: NOW,
+      }).map((c) => c.exercise.id);
+    // 3 overlaps (30) and 2 overlaps (20) both hit the +20 cap and tie into id
+    // order; 1 overlap (10) ranks below both.
+    expect(
+      run([
+        ex("a-three", "shoulders", {
+          secondaryMuscles: ["triceps", "biceps", "back"],
+        }),
+        ex("b-two", "shoulders", { secondaryMuscles: ["triceps", "biceps"] }),
+        ex("d-one", "shoulders", { secondaryMuscles: ["triceps"] }),
+      ]),
+    ).toEqual(["a-three", "b-two", "d-one"]);
+  });
+
+  it("recovery bands reorder structurally identical candidates", () => {
+    const recovery = {
+      ...fullRecovery,
+      shoulders: 100,
+      triceps: 0,
+      biceps: 0,
+    } as Record<MuscleGroup, number>;
+    const ids = rankSubstitutes({
+      outgoing,
+      library: [
+        ex("t-biceps", "biceps"),
+        ex("s-shoulders", "shoulders"),
+        ex("t-triceps", "triceps"),
+      ],
+      ownedEquipment: owned,
+      inWorkout: new Set<string>(),
+      recovery,
+      lastDoneAt: new Map(),
+      now: NOW,
+    }).map((c) => c.exercise.id);
+    // biceps (pull, 0 structural) vs shoulders/triceps (push, 30 structural):
+    // triceps fatigued (0 rec) must land below fresh shoulders; biceps below
+    // triceps would only happen if recovery were ignored — assert full order.
+    expect(ids).toEqual(["s-shoulders", "t-triceps", "t-biceps"]);
+  });
+
+  it("freshness: recently done ranks below never done", () => {
+    const ids = rankSubstitutes({
+      outgoing,
+      library: [ex("yesterday", "chest"), ex("never", "chest")],
+      ownedEquipment: owned,
+      inWorkout: new Set<string>(),
+      recovery: fullRecovery,
+      lastDoneAt: new Map([["yesterday", NOW - DAY]]),
+      now: NOW,
+    }).map((c) => c.exercise.id);
+    expect(ids).toEqual(["never", "yesterday"]);
+  });
+
+  it("caps at the default limit of 10 and breaks ties by id", () => {
+    const library = Array.from({ length: 12 }, (_, i) =>
+      ex(`x${String(i + 1).padStart(2, "0")}`, "chest"),
+    );
+    expect(rank(library)).toHaveLength(10);
+    expect(rank(library)[0]).toBe("x01");
+    expect(rank(library)[9]).toBe("x10");
+    expect(rank(library, [], 2)).toEqual(["x01", "x02"]);
+  });
+
+  it("returns an empty list when nothing is eligible", () => {
+    expect(rank([ex("a", "chest")], ["a"])).toEqual([]);
+  });
+
+  it("scoring helpers match generateWorkout's vocabulary", () => {
+    expect(freshnessScore(undefined, NOW)).toBe(40);
+    expect(freshnessScore(NOW - 14 * DAY, NOW)).toBe(40);
+    expect(freshnessScore(NOW - 7 * DAY, NOW)).toBe(20);
+    expect(freshnessScore(NOW, NOW)).toBe(0);
+    expect(recoveryBandPoints(100)).toBe(30);
+    expect(recoveryBandPoints(70)).toBe(30);
+    expect(recoveryBandPoints(69)).toBe(15);
+    expect(recoveryBandPoints(30)).toBe(15);
+    expect(recoveryBandPoints(29)).toBe(0);
   });
 });

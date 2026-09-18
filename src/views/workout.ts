@@ -5,7 +5,10 @@ import {
   type RestTimerHandle,
 } from "../components/restTimer.ts";
 import { renderSetRow } from "../components/setRow.ts";
+import { openExerciseInfo } from "../components/exerciseInfo.ts";
+import { openSubstituteSheet } from "../components/substituteSheet.ts";
 import {
+  allCompletedSets,
   deleteSet,
   discardWorkout,
   finishWorkout,
@@ -20,7 +23,12 @@ import {
   upsertSet,
   uuid,
 } from "../lib/store.ts";
-import { suggestNextWeight, buildWarmupSets } from "../lib/suggest.ts";
+import {
+  rankSubstitutes,
+  suggestNextWeight,
+  buildWarmupSets,
+} from "../lib/suggest.ts";
+import { recoveryMap } from "../lib/recovery.ts";
 import { ensureAudio } from "../lib/timer.ts";
 import { plateBreakdown, formatPlateLine } from "../lib/plates.ts";
 import type { Exercise, MuscleGroup, WorkoutSet } from "../lib/types.ts";
@@ -127,8 +135,10 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
   }
 
   /** Clear recovery overrides for trained muscles on a new completion.
- *  Best-effort with its own error path: the set itself already committed. */
-  async function clearTrainedOverrides(ex: Exercise | undefined): Promise<void> {
+   *  Best-effort with its own error path: the set itself already committed. */
+  async function clearTrainedOverrides(
+    ex: Exercise | undefined,
+  ): Promise<void> {
     if (!ex) return;
     try {
       const ov = { ...settings.recoveryOverrides };
@@ -170,6 +180,183 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
     oldCard?.replaceWith(freshCard);
   }
 
+  /**
+   * Create, persist, and register an exercise's opening sets: suggested
+   * working weight (R3 prefill), plus the warmup ramp when its primary muscle
+   * hasn't been trained this session. Shared by Add and Swap. Throws on
+   * storage failure (and for an unknown exercise) — caller owns rollback.
+   */
+  async function addExerciseSets(exerciseId: string): Promise<WorkoutSet[]> {
+    const ex = await getExercise(exerciseId);
+    if (!ex) throw new Error(`unknown exercise: ${exerciseId}`);
+    const sugg = await suggestionFor(exerciseId, ex.primaryMuscle);
+    const workingKg = sugg ?? 20;
+    // First exercise per primary muscle opens with the warmup ramp.
+    const unseenMuscle = ![...muscleByEx.values()].includes(ex.primaryMuscle);
+    muscleByEx.set(exerciseId, ex.primaryMuscle);
+    const nowTs = Date.now();
+    let order = nextOrder();
+    const rows: WorkoutSet[] = [];
+    if (unseenMuscle) {
+      for (const w of buildWarmupSets(workingKg)) {
+        rows.push({
+          id: uuid(),
+          workoutId,
+          exerciseId,
+          order: order++,
+          weightKg: w.weightKg,
+          reps: w.reps,
+          completed: false,
+          isWarmup: true,
+          createdAt: nowTs,
+        });
+      }
+    }
+    rows.push({
+      id: uuid(),
+      workoutId,
+      exerciseId,
+      order: order++,
+      weightKg: workingKg, // R3 prefill
+      reps: 8,
+      completed: false,
+      createdAt: nowTs,
+    });
+    for (const r of rows) await upsertSet(r);
+    for (const r of rows) setsById.set(r.id, r);
+    const existing = groupsByEx.get(exerciseId);
+    if (existing) existing.push(...rows);
+    else groupsByEx.set(exerciseId, [...rows]);
+    updateCounter();
+    return rows;
+  }
+
+  /**
+   * Keep-done/swap-rest: delete the outgoing exercise's unlogged sets (never
+   * its completed ones), then insert the substitute prefilled via
+   * addExerciseSets. The substitute card takes the outgoing card's DOM
+   * position; a card with surviving completed sets is rebuilt in place. On
+   * any storage failure, resync both exercises from what actually persisted
+   * (partial completion is acceptable; silent divergence is not).
+   */
+  async function swapExercise(
+    exerciseId: string,
+    newExerciseId: string,
+  ): Promise<void> {
+    const outgoing = await getExercise(exerciseId);
+    const fresh = await getExercise(newExerciseId);
+    if (!outgoing || !fresh) {
+      toast("Exercise not found — reopen the workout and retry.");
+      return;
+    }
+    const group = groupsByEx.get(exerciseId) ?? [];
+    const unlogged = group.filter((s) => s.completed !== true);
+    const workingCount = unlogged.filter((s) => s.isWarmup !== true).length;
+    if (
+      workingCount > 0 &&
+      !window.confirm(
+        `Discard ${workingCount} unfinished set${workingCount === 1 ? "" : "s"} of ${outgoing.name} and add ${fresh.name}?`,
+      )
+    )
+      return;
+    try {
+      for (const s of unlogged) await deleteSet(s.id);
+    } catch (err) {
+      console.error(err);
+      toast("Couldn't swap — storage unavailable. Retry.");
+      await resyncExercise(exerciseId);
+      return;
+    }
+    for (const s of unlogged) setsById.delete(s.id);
+    const remaining = group.filter((s) => s.completed === true);
+    if (remaining.length === 0) {
+      groupsByEx.delete(exerciseId);
+      // Muscle unseen again (and nothing logged): let a same-muscle
+      // substitute still earn its warmup ramp.
+      if (muscleByEx.get(exerciseId) === outgoing.primaryMuscle)
+        muscleByEx.delete(exerciseId);
+    } else {
+      groupsByEx.set(exerciseId, remaining);
+    }
+    updateCounter();
+    try {
+      const rows = await addExerciseSets(newExerciseId);
+      const oldCard = cardsByEx.get(exerciseId);
+      const newCard = await buildExerciseCard(newExerciseId);
+      cardsByEx.set(newExerciseId, newCard);
+      if (remaining.length === 0) {
+        cardsByEx.delete(exerciseId);
+        if (oldCard) oldCard.replaceWith(newCard);
+        else root.insertBefore(newCard, addCard); // E3: outgoing was last
+      } else {
+        const rebuilt = await buildExerciseCard(exerciseId);
+        cardsByEx.set(exerciseId, rebuilt);
+        if (oldCard) oldCard.replaceWith(rebuilt);
+        else root.insertBefore(rebuilt, addCard);
+        rebuilt.after(newCard);
+      }
+      const firstWorkingId = (
+        rows.find((r) => r.isWarmup !== true) ?? rows[rows.length - 1]
+      )?.id;
+      if (firstWorkingId)
+        focusControl(rowById.get(firstWorkingId) ?? newCard, "done");
+      toast(`Swapped to ${fresh.name}.`);
+    } catch (err) {
+      console.error(err);
+      toast("Couldn't swap — storage unavailable. Retry.");
+      await resyncExercise(exerciseId);
+      await resyncExercise(newExerciseId);
+    }
+  }
+
+  /** Open the ranked substitute picker, then swap on selection. */
+  async function beginSwap(exerciseId: string): Promise<void> {
+    const outgoing = await getExercise(exerciseId);
+    if (!outgoing) return;
+    const completed = await allCompletedSets();
+    const byId = new Map(
+      (await listExercises(true)).map((e) => [e.id, e] as const),
+    );
+    const recovery = recoveryMap(
+      completed.map((s) => ({
+        set: s,
+        exercise: byId.get(s.exerciseId),
+      })),
+      settings.recoveryOverrides,
+    );
+    const lastDoneAt = new Map<string, number>();
+    for (const s of completed)
+      lastDoneAt.set(
+        s.exerciseId,
+        Math.max(lastDoneAt.get(s.exerciseId) ?? 0, s.createdAt),
+      );
+    const candidates = rankSubstitutes({
+      outgoing,
+      library: [...byId.values()],
+      ownedEquipment: settings.equipment,
+      inWorkout: new Set(groupsByEx.keys()),
+      recovery,
+      lastDoneAt,
+      now: Date.now(),
+    });
+    const rows = await Promise.all(
+      candidates.map(async (c) => ({
+        exercise: c.exercise,
+        recoveryPct: recovery[c.exercise.primaryMuscle] ?? 100,
+        suggestedKg: await suggestionFor(
+          c.exercise.id,
+          c.exercise.primaryMuscle,
+        ),
+      })),
+    );
+    const picked = await openSubstituteSheet({
+      outgoingName: outgoing.name,
+      rows,
+      units: settings.units,
+    });
+    if (picked) await swapExercise(exerciseId, picked);
+  }
+
   async function buildExerciseCard(exerciseId: string): Promise<HTMLElement> {
     const ex = await getExercise(exerciseId);
     if (ex) muscleByEx.set(exerciseId, ex.primaryMuscle);
@@ -191,11 +378,25 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
           "button",
           {
             "aria-label": `View ${name} instructions`,
-            onclick: () => go(`/exercises/${encodeURIComponent(exerciseId)}`),
+            onclick: () => openExerciseInfo(ex),
           },
           "ⓘ Info",
         ),
       );
+      const swapBtn = h(
+        "button",
+        {
+          "aria-label": `Swap ${name} for a different exercise`,
+          onclick: () => {
+            swapBtn.setAttribute("disabled", "true"); // E10: one swap at a time
+            void beginSwap(exerciseId).finally(() =>
+              swapBtn.removeAttribute("disabled"),
+            );
+          },
+        },
+        "⇄ Swap",
+      );
+      header.appendChild(swapBtn);
     }
     card.appendChild(header);
     const table = h("table", { class: "set-table" });
@@ -257,8 +458,7 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
         updateCounter();
         if (next.completed && !prev.completed) {
           // Warmup completions persist like any set but never start the timer.
-          if (next.isWarmup !== true)
-            rest.start(settings.restSeconds); // restarts if already running (R4)
+          if (next.isWarmup !== true) rest.start(settings.restSeconds); // restarts if already running (R4)
           void clearTrainedOverrides(ex);
         }
         if (next.completed !== prev.completed) patchRow(next, index, makeRow);
@@ -409,59 +609,13 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
           onclick: async () => {
             if (!sel.value) return;
             try {
-              const ex = await getExercise(sel.value);
-              const sugg = ex
-                ? await suggestionFor(ex.id, ex.primaryMuscle)
-                : undefined;
-              const workingKg = sugg ?? 20;
-              // First exercise per primary muscle opens with the warmup ramp.
-              const unseenMuscle =
-                ex != null && ![...muscleByEx.values()].includes(ex.primaryMuscle);
-              if (ex) muscleByEx.set(sel.value, ex.primaryMuscle);
-              const nowTs = Date.now();
-              let order = nextOrder();
-              const rows: WorkoutSet[] = [];
-              if (unseenMuscle) {
-                for (const w of buildWarmupSets(workingKg)) {
-                  rows.push({
-                    id: uuid(),
-                    workoutId,
-                    exerciseId: sel.value,
-                    order: order++,
-                    weightKg: w.weightKg,
-                    reps: w.reps,
-                    completed: false,
-                    isWarmup: true,
-                    createdAt: nowTs,
-                  });
-                }
-              }
-              const first: WorkoutSet = {
-                id: uuid(),
-                workoutId,
-                exerciseId: sel.value,
-                order: order++,
-                weightKg: workingKg, // R3 prefill
-                reps: 8,
-                completed: false,
-                createdAt: nowTs,
-              };
-              rows.push(first);
-              for (const r of rows) await upsertSet(r);
-              for (const r of rows) setsById.set(r.id, r);
-              const existing = groupsByEx.get(sel.value);
-              if (existing) existing.push(...rows);
-              else groupsByEx.set(sel.value, [...rows]);
-              updateCounter();
+              const rows = await addExerciseSets(sel.value);
               const oldCard = cardsByEx.get(sel.value);
               const freshCard = await buildExerciseCard(sel.value);
               cardsByEx.set(sel.value, freshCard);
               if (oldCard) oldCard.replaceWith(freshCard);
               else root.insertBefore(freshCard, addCard);
-              focusControl(
-                rowById.get(rows[0]?.id ?? first.id) ?? freshCard,
-                "done",
-              );
+              focusControl(rowById.get(rows[0]?.id ?? "") ?? freshCard, "done");
             } catch (err) {
               console.error(err);
               toast("Couldn't add exercise — storage unavailable. Retry.");

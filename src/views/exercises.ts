@@ -4,6 +4,7 @@ import {
   MUSCLE_LABELS,
   ALL_EQUIPMENT,
 } from "../data/muscles.ts";
+import { exerciseInfoContent } from "../components/exerciseInfo.ts";
 import {
   archiveExercise,
   getExercise,
@@ -108,7 +109,10 @@ function exerciseForm(existing?: Exercise, onSaved?: () => void): HTMLElement {
   return form;
 }
 
-export async function renderExercises(detailId?: string): Promise<HTMLElement> {
+export async function renderExercises(
+  detailId?: string,
+  returnTo?: string,
+): Promise<HTMLElement> {
   const root = h("div", {});
   if (detailId) {
     const ex = await getExercise(detailId);
@@ -117,23 +121,21 @@ export async function renderExercises(detailId?: string): Promise<HTMLElement> {
     const view = h(
       "div",
       { class: "card" },
-      h("strong", {}, ex.name),
-      h(
-        "p",
-        { class: "muted" },
-        `${MUSCLE_LABELS[ex.primaryMuscle]} · ${ex.equipment} · ${ex.difficulty}${ex.isCustom ? " · custom" : ""}`,
-      ),
-      h("ol", {}, ...ex.instructions.map((s) => h("li", {}, s))),
-      ex.tips ? h("p", {}, ex.tips) : "",
-      h(
-        "p",
-        { class: "muted" },
-        "Stop if you feel sharp pain. Not medical advice.",
-      ),
+      exerciseInfoContent(ex),
       h(
         "div",
         { class: "row" },
-        h("button", { onclick: () => go("/exercises") }, "Back"),
+        h("button", { onclick: () => go(returnTo ?? "/exercises") }, "Back"),
+        h(
+          "button",
+          {
+            onclick: () =>
+              go(
+                `/progress/exercise/${encodeURIComponent(ex.id)}?from=${encodeURIComponent(`/exercises/${ex.id}`)}`,
+              ),
+          },
+          "View progress",
+        ),
         h(
           "button",
           {

@@ -1,7 +1,6 @@
 /** Data-safety vectors: seeding, atomicity, merge, malformed imports (spec §7). */
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { openDb } from "../../src/lib/db.ts";
 import {
   MAX_BACKUP_CHARS,
   MAX_BACKUP_ROWS,
@@ -380,21 +379,19 @@ describe("import guards (R3/R10)", () => {
 });
 
 describe("connection (R6)", () => {
-  it("openDb forwards the real old and new versions", async () => {
-    const name = `ver-probe-${Date.now()}`;
-    const first = await openDb(name, 1, () => {});
-    first.close();
-    const seen: Array<[number, number]> = [];
-    const second = await openDb(name, 2, (_db, oldVersion, newVersion) => {
-      seen.push([oldVersion, newVersion]);
-    });
-    second.close();
-    expect(seen).toEqual([[1, 2]]);
-    await new Promise<void>((resolve, reject) => {
-      const req = indexedDB.deleteDatabase(name);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error ?? new Error("cleanup failed"));
-    });
+  it("getDb creates all stores and indexes on first open", async () => {
+    const db = await getDb();
+    expect([...db.objectStoreNames].sort()).toEqual([...ALL_STORES].sort());
+    const tx = db.transaction(["exercises", "sets", "workouts"]);
+    const exercises = tx.objectStore("exercises");
+    expect(exercises.indexNames.contains("by-muscle")).toBe(true);
+    expect(exercises.indexNames.contains("by-equipment")).toBe(true);
+    const sets = tx.objectStore("sets");
+    expect(sets.indexNames.contains("by-workoutId")).toBe(true);
+    expect(sets.indexNames.contains("by-exerciseId")).toBe(true);
+    expect(tx.objectStore("workouts").indexNames.contains("by-startedAt")).toBe(
+      true,
+    );
   });
 
   it("getDb retries after an open failure instead of caching the rejection", async () => {

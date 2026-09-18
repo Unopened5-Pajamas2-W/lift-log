@@ -2,7 +2,7 @@
  *  Quiet a11y: label is plain text; a hidden announcer speaks only on expiry. */
 import { createRestTimer, ensureAudio, formatCountdown } from "../lib/timer.ts";
 import { acquireScreenWakeLock } from "../lib/wakeLock.ts";
-import { h } from "../lib/ui.ts";
+import { h, onDetached } from "../lib/ui.ts";
 
 export interface RestTimerHandle {
   element: HTMLElement;
@@ -132,16 +132,10 @@ export function renderRestTimer(
 
   // Dispose when the view unmounts (router replaces #view content): stop the
   // timer (restores document.title), release the lock, drop the listener.
-  new MutationObserver((_, obs) => {
-    if (!card.isConnected) {
-      obs.disconnect();
-      timer.dispose();
-      dropLock();
-      document.removeEventListener("visibilitychange", onVisibility);
-    }
-  }).observe(card.parentElement ?? document.body, {
-    childList: true,
-    subtree: true,
+  onDetached(card, () => {
+    timer.dispose();
+    dropLock();
+    document.removeEventListener("visibilitychange", onVisibility);
   });
   return handle;
 }

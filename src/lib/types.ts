@@ -1,4 +1,6 @@
 /** Shared domain types. Canonical weight unit is kilograms (kg). */
+import type { DBSchema } from "idb";
+
 export type MuscleGroup =
   | "chest"
   | "back"
@@ -102,3 +104,31 @@ export interface Settings {
 
 export const SCHEMA_VERSION = 1;
 export const DB_NAME = "workout-pwa";
+
+/** Typed IndexedDB layout (idb DBSchema): store → key/value/index types. */
+export interface LiftLogDB extends DBSchema {
+  exercises: {
+    key: string;
+    value: Exercise;
+    indexes: {
+      "by-muscle": MuscleGroup;
+      "by-equipment": Equipment;
+    };
+  };
+  workouts: {
+    key: string;
+    value: Workout;
+    indexes: { "by-startedAt": number };
+  };
+  sets: {
+    key: string;
+    value: WorkoutSet;
+    indexes: {
+      "by-workoutId": string;
+      "by-exerciseId": string;
+    };
+  };
+  templates: { key: string; value: Template };
+  settings: { key: string; value: Settings };
+  meta: { key: string; value: { id: string; schemaVersion: number } };
+}

@@ -5,13 +5,18 @@ All data stays in IndexedDB on your device; portability is via JSON/CSV file bac
 
 Spec: `copilot_temp/spec-ios-workout-pwa-20260916.md`
 
-## Stack (all free OSS, zero runtime deps)
+## Stack
 
-- Vite 6 + TypeScript 5 (`strict`), vanilla SPA (hash router), hand-rolled Service Worker
-- Storage: IndexedDB via `src/lib/db.ts` (own ~80-line wrapper) + `src/lib/store.ts`
+- Vite 6 + TypeScript 5 (`strict`), vanilla SPA (hash router)
+- Storage: IndexedDB via [`idb`](https://github.com/jakearchibald/idb) (typed, sole runtime dep) + `src/lib/store.ts`
+- Charts: [`uplot`](https://github.com/leeoniya/uPlot) (bundled, offline-safe; `src/components/trendChart.ts` is the only importer)
+- PWA: service worker generated at build time by [`vite-plugin-pwa`](https://vite-pwa-org.netlify.app/)
+  (Workbox precache + offline navigation fallback); update application is
+  deferred until no workout is active (`src/sw-register.ts`)
 - Pure logic: `metrics.ts` (Epley e1RM, volume, PRs), `recovery.ts` (6-day decay map),
-  `suggest.ts` (seeded next-workout + overload prefill), `units.ts`, `timer.ts`, `backup.ts`
-- Dev-only: `vitest`, `eslint`, `prettier` (never shipped)
+  `suggest.ts` (seeded next-workout + overload prefill), `units.ts`, `timer.ts`, `backup.ts`,
+  `analytics.ts` (per-exercise session series, rep-max ladder, muscle split, week streaks)
+- Dev-only: `vitest`, `eslint`, `prettier`, `vite-plugin-pwa` (never shipped)
 
 ## Setup
 
@@ -37,10 +42,10 @@ Settings → Export JSON (full dump) / Export CSV (per-set rows) / Import JSON
 
 ## Project layout
 
-- `index.html`, `public/manifest.webmanifest`, `public/icons/`, `public/sw.js`, `public/offline.html`
+- `index.html`, `public/manifest.webmanifest`, `public/icons/`
 - `src/main.ts`, `src/app.ts`, `src/styles.css`, `src/sw-register.ts`
 - `src/lib/`, `src/components/`, `src/views/`, `src/data/` (84 seeded exercises + 3 templates)
-- `tests/unit/` (metrics, recovery, suggest+units, backup)
+- `tests/unit/` (metrics, recovery, suggest+units, backup, analytics, ui-helpers)
 - `scripts/make-icons.mjs` (Node built-ins only)
 
 ## Constraints honored

@@ -16,7 +16,7 @@
   --radius: 12px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
-  --tabbar-h: 68px;
+  --tabbar-h: 56px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -27,6 +27,18 @@
   --text-body: 1rem;
   --text-caption: 0.8125rem;
   --text-tab: 0.6875rem;
+}
+/* iOS 26.0–26.1 standalone regression: env(safe-area-inset-bottom) can
+   under-report (often flipping to 0 after in-app navigation), so the tab
+   bar's home-indicator band — and therefore the gap beneath the tab labels —
+   changes size between pages. The installed target is exactly one device
+   (iPhone 17 Pro Max, 34px indicator), so floor the inset inside installed
+   modes; env() still raises it if Apple ever changes the inset. Browser-tab
+   Safari matches neither display mode and keeps the plain env() value. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  :root {
+    --safe-b: max(env(safe-area-inset-bottom, 0px), 34px);
+  }
 }
 * {
   box-sizing: border-box;
@@ -182,13 +194,16 @@ nav.tabbar {
   padding-bottom: var(--safe-b);
   background: var(--bg-soft);
   border-top: 1px solid var(--border);
+  /* Paint the bar color through the home-indicator zone so an iOS viewport
+     that under-reports its height can never show body background below. */
+  box-shadow: 0 var(--safe-b) 0 var(--bg-soft);
 }
 nav.tabbar a {
   position: relative;
   display: grid;
   place-items: center;
   align-content: center;
-  min-height: 64px;
+  min-height: 56px;
   min-width: 44px;
   padding: 6px 2px 4px;
   color: var(--muted);
@@ -477,7 +492,7 @@ canvas.chart {
   gap: 8px;
   font-size: 0.9rem;
 }
-.pr-list .pr-meta {
+.pr-meta {
   color: var(--muted);
   font-size: var(--text-caption);
   white-space: nowrap;
@@ -540,4 +555,180 @@ tr.set-row[data-completed="true"] {
 .card.rest-done .muted {
   color: var(--text);
   font-weight: 600;
+}
+/* Exercise info bottom sheet: a modal over the current view so an active
+   workout (and its running rest timer) stays alive underneath. */
+dialog.sheet {
+  position: fixed;
+  inset: auto 0 0 0;
+  width: min(100%, 640px);
+  margin: 0 auto;
+  max-height: 85dvh;
+  overflow-y: auto;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 12px 12px calc(12px + var(--safe-b));
+  display: grid;
+  gap: 12px;
+}
+dialog.sheet::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+@media (prefers-reduced-motion: no-preference) {
+  dialog.sheet[open] {
+    animation: sheet-up 0.25s ease-out;
+  }
+  @keyframes sheet-up {
+    from {
+      transform: translateY(20%);
+      opacity: 0.6;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+}
+/* Sheet drag-handle affordance + substitute-picker rows (44pt targets). */
+.sheet-handle {
+  justify-self: center;
+  width: 36px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--border);
+}
+.sheet-list {
+  display: grid;
+  gap: var(--space-2);
+}
+.sheet-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  color: var(--text);
+}
+.sheet-row-meta {
+  display: block;
+  font-size: var(--text-caption);
+}
+
+/* ————— Progress analytics (spec 2026-09-18) ————— */
+.segmented {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-soft);
+}
+.segmented button {
+  min-height: 36px;
+  min-width: 52px;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--text-caption);
+}
+.segmented button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.trend-chart {
+  position: relative;
+}
+.trend-host {
+  width: 100%;
+}
+.trend-host .uplot {
+  font-family: inherit;
+}
+.ladder-best td {
+  font-weight: 600;
+  color: var(--accent);
+}
+.recovery-list .delta-up .pr-meta {
+  color: var(--good);
+}
+.recovery-list .delta-down .pr-meta {
+  color: var(--bad);
+}
+.split-list .bar > i {
+  background: var(--accent);
+}
+.pr-list a,
+.recovery-list a {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  color: inherit;
+  text-decoration: none;
+}
+.pr-list a:active,
+.recovery-list a:active {
+  opacity: 0.7;
+}
+.chip-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 4px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-soft);
+  color: var(--text);
+  font-size: var(--text-caption);
+  text-decoration: none;
+}
+.chip:active {
+  background: var(--border);
+}
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-top: 8px;
+}
+.stat-cell {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--bg-soft);
+}
+.stat-value {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.stat-value.hot {
+  color: var(--accent);
+}
+.stat-label {
+  display: block;
+  font-size: var(--text-caption);
+  color: var(--muted);
 }

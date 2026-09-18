@@ -76,6 +76,26 @@ export function debounce<F extends (...args: never[]) => void>(
   }) as F;
 }
 
+/** Run `cleanup` exactly once when `el` is detached from the document
+ *  (the router clears the shell on navigation, removing whole subtrees).
+ *  Observes document-level childList changes so ancestor removal is caught
+ *  too; the callback itself is a cheap isConnected check. Returns a cancel
+ *  function for tests. */
+export function onDetached(el: Node, cleanup: () => void): () => void {
+  let fired = false;
+  const obs = new MutationObserver(() => {
+    if (fired || el.isConnected) return;
+    fired = true;
+    obs.disconnect();
+    cleanup();
+  });
+  obs.observe(document, { childList: true, subtree: true });
+  return () => {
+    fired = true;
+    obs.disconnect();
+  };
+}
+
 /** Navigate via hash router. */
 export function go(path: string): void {
   if (location.hash === `#${path}`)

@@ -68,12 +68,30 @@ export function buildWarmupSets(
   }));
 }
 
+/** Freshness points (0–40): the longer since last done, the fresher. Pure. */
+export function freshnessScore(
+  lastDoneAtMs: number | undefined,
+  now: number,
+): number {
+  const daysSince =
+    lastDoneAtMs == null ? 30 : Math.max(0, (now - lastDoneAtMs) / 86_400_000);
+  return Math.min(40, (daysSince / 14) * 40);
+}
+
+/** Recovery-band points shared by workout generation and swap ranking. Pure. */
+export function recoveryBandPoints(recoveryPct: number): number {
+  return recoveryPct >= 70 ? 30 : recoveryPct >= 30 ? 15 : 0;
+}
+
 /** Quarter-kg rounding (matches the rest of the codebase). */
 function round4(v: number): number {
   return Math.round(v * 4) / 4;
 }
 
-export type OverloadHistory = Pick<WorkoutSet, "weightKg" | "reps" | "completed"> &
+export type OverloadHistory = Pick<
+  WorkoutSet,
+  "weightKg" | "reps" | "completed"
+> &
   Partial<Pick<WorkoutSet, "workoutId" | "createdAt" | "isWarmup">>;
 
 interface WorkingSession {
@@ -92,8 +110,13 @@ interface WorkingSession {
  * (e.g. legacy unit vectors) form a single session with unknown time (0),
  * which also opts out of the staleness guard.
  */
-export function groupWorkingSessions(sets: OverloadHistory[]): WorkingSession[] {
-  const bySession = new Map<string, { time: number; sets: OverloadHistory[] }>();
+export function groupWorkingSessions(
+  sets: OverloadHistory[],
+): WorkingSession[] {
+  const bySession = new Map<
+    string,
+    { time: number; sets: OverloadHistory[] }
+  >();
   for (const s of sets) {
     if (!s.completed || s.isWarmup === true) continue;
     const key = s.workoutId ?? "__single__";
@@ -133,8 +156,9 @@ export function suggestNextWeight(
   const sessions = groupWorkingSessions(lastSets);
   const latest = sessions[0];
   if (!latest) return { weightKg: 20, reps: 8 };
-  const baseline =
-    round4(sessions.reduce((sum, s) => sum + s.top, 0) / sessions.length);
+  const baseline = round4(
+    sessions.reduce((sum, s) => sum + s.top, 0) / sessions.length,
+  );
   const target = latest.target;
   if (latest.worstShortfall <= -2) {
     // Struggle (spec §7: −2 or worse) → deload 5% off the recent baseline.
@@ -184,12 +208,9 @@ export function generateWorkout(input: SuggestInput): {
   });
 
   const scored = eligible.map((e) => {
-    const lastAt = input.lastDoneAt.get(e.id);
-    const daysSince =
-      lastAt == null ? 30 : Math.max(0, (now - lastAt) / 86_400_000);
-    const freshness = Math.min(40, (daysSince / 14) * 40);
+    const freshness = freshnessScore(input.lastDoneAt.get(e.id), now);
     const rec = input.recovery[e.primaryMuscle] ?? 100;
-    const recoveryFit = rec >= 70 ? 30 : rec >= 30 ? 15 : 0;
+    const recoveryFit = recoveryBandPoints(rec);
     const pattern = MUSCLE_PATTERN[e.primaryMuscle];
     const patternBonus =
       input.focus === "full-body" ? 10 : pattern === "core" ? 0 : 10;
@@ -270,4 +291,67 @@ export function generateWorkout(input: SuggestInput): {
   }
 
   return { items, explanations: items.map((i) => i.explanation) };
+}
+
+export interface SubstituteInput {
+  outgoing: Pick<
+    Exercise,
+    "id" | "primaryMuscle" | "secondaryMuscles" | "equipment"
+  >;
+  library: Exercise[];
+  ownedEquipment: readonly Equipment[];
+  /** Exercise ids already in the active workout — never candidates. */
+  inWorkout: ReadonlySet<string>;
+  recovery: Record<MuscleGroup, number>;
+  lastDoneAt: Map<string, number>;
+  now: number;
+  limit?: number;
+}
+
+export interface SubstituteCandidate {
+  exercise: Exercise;
+  score: number;
+}
+
+const SUBSTITUTE_LIMIT = 10;
+const SAME_MUSCLE_POINTS = 60;
+const SAME_PATTERN_POINTS = 30;
+const SECONDARY_OVERLAP_POINTS = 10;
+const SECONDARY_OVERLAP_CAP = 20;
+
+/**
+ * Rank eligible library exercises as substitutes for `outgoing`, best first.
+ * Pure + deterministic (id tie-break, no RNG) so tests can assert exact order.
+ * Fatigued muscles are ranked low by the recovery band, never excluded —
+ * swapping is explicit user intent.
+ */
+export function rankSubstitutes(input: SubstituteInput): SubstituteCandidate[] {
+  const owned = new Set(input.ownedEquipment);
+  const outgoingPattern = MUSCLE_PATTERN[input.outgoing.primaryMuscle];
+  const outgoingSecondary = new Set(input.outgoing.secondaryMuscles);
+  const eligible = input.library.filter((e) => {
+    if (e.isArchived || input.inWorkout.has(e.id)) return false;
+    return e.equipment === "bodyweight" || owned.has(e.equipment);
+  });
+  const scored = eligible.map((e) => {
+    let score = 0;
+    if (e.primaryMuscle === input.outgoing.primaryMuscle)
+      score += SAME_MUSCLE_POINTS;
+    if (MUSCLE_PATTERN[e.primaryMuscle] === outgoingPattern)
+      score += SAME_PATTERN_POINTS;
+    const overlap = e.secondaryMuscles.filter((m) =>
+      outgoingSecondary.has(m),
+    ).length;
+    score += Math.min(
+      SECONDARY_OVERLAP_CAP,
+      overlap * SECONDARY_OVERLAP_POINTS,
+    );
+    score += recoveryBandPoints(input.recovery[e.primaryMuscle] ?? 100);
+    score += freshnessScore(input.lastDoneAt.get(e.id), input.now);
+    return { exercise: e, score };
+  });
+  scored.sort(
+    (a, b) => b.score - a.score || a.exercise.id.localeCompare(b.exercise.id),
+  );
+  return scored.slice(0, input.limit ?? SUBSTITUTE_LIMIT);
 }
