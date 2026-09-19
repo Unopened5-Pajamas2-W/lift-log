@@ -1,4 +1,4 @@
-/** Settings: units, equipment, rest default, backup. */
+/** Settings: units, equipment, rest default, app updates, backup. */
 import { ALL_EQUIPMENT } from "../data/muscles.ts";
 import {
   exportJson,
@@ -18,9 +18,89 @@ import {
   saveSettings,
 } from "../lib/store.ts";
 import { sessionVolume } from "../lib/metrics.ts";
+import {
+  applyAppUpdate,
+  checkForAppUpdate,
+  isAppUpdateReady,
+} from "../sw-register.ts";
+import type { UpdateCheckResult } from "../sw-register.ts";
 import { displayWeight } from "../lib/units.ts";
 import { barInputToKg } from "../lib/plates.ts";
 import { fmtDate, go, h, toast } from "../lib/ui.ts";
+
+declare const __APP_VERSION__: string;
+
+/** Status line text for a manual update-check result. */
+function updateCheckStatusText(result: UpdateCheckResult): string {
+  if (result === "update-ready") return "Update ready — tap Reload to apply it.";
+  if (result === "up-to-date") return "You're on the latest version.";
+  if (result === "offline")
+    return "Couldn't reach the server — you're offline. Try again later.";
+  return "Updates aren't available in this browser context.";
+}
+
+/** App-updates card: version info plus manual check/reload (never auto-checks). */
+function renderUpdatesCard(): HTMLElement {
+  const status = h("p", { class: "muted" });
+  const reloadBtn = h(
+    "button",
+    {
+      onclick: async () => {
+        await applyAppUpdate();
+        // A reload discards this page; reaching here means the update was
+        // deferred (workout active) or unavailable.
+        if (isAppUpdateReady())
+          status.textContent =
+            "Update ready — finish your workout, then tap Reload.";
+      },
+    },
+    "Reload to update",
+  );
+  const showReload = (): void => {
+    if (!reloadBtn.isConnected) actions.appendChild(reloadBtn);
+  };
+  const checkBtn = h(
+    "button",
+    { class: "primary", type: "button" },
+    "Check for updates",
+  );
+  checkBtn.addEventListener("click", () => {
+    void (async () => {
+      checkBtn.setAttribute("disabled", "true");
+      status.textContent = "Checking…";
+      let result: UpdateCheckResult;
+      try {
+        result = await checkForAppUpdate();
+      } catch (err) {
+        console.error(err);
+        result = "offline";
+      }
+      checkBtn.removeAttribute("disabled");
+      status.textContent = updateCheckStatusText(result);
+      if (result === "update-ready") showReload();
+    })();
+  });
+  const actions = h("div", { class: "row" }, checkBtn);
+  if (isAppUpdateReady()) {
+    status.textContent = updateCheckStatusText("update-ready");
+    actions.appendChild(reloadBtn);
+  } else {
+    status.textContent =
+      "Tap Check for updates to see if a new version is available.";
+  }
+  return h(
+    "div",
+    { class: "card" },
+    h("strong", {}, "App updates"),
+    h(
+      "p",
+      { class: "muted" },
+      `Lift Log v${typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev"} · never checks on its own — no network use until you tap below.`,
+    ),
+    status,
+    actions,
+  );
+}
 
 export async function renderSettings(): Promise<HTMLElement> {
   const root = h("div", {});
@@ -137,6 +217,8 @@ export async function renderSettings(): Promise<HTMLElement> {
       equipBox,
     ),
   );
+
+  root.appendChild(renderUpdatesCard());
 
   // Backup
   const backupCard = h(

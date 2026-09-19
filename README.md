@@ -11,7 +11,8 @@ Spec: `copilot_temp/spec-ios-workout-pwa-20260916.md`
 - Storage: IndexedDB via [`idb`](https://github.com/jakearchibald/idb) (typed, sole runtime dep) + `src/lib/store.ts`
 - Charts: [`uplot`](https://github.com/leeoniya/uPlot) (bundled, offline-safe; `src/components/trendChart.ts` is the only importer)
 - PWA: service worker generated at build time by [`vite-plugin-pwa`](https://vite-pwa-org.netlify.app/)
-  (Workbox precache + offline navigation fallback); update application is
+  (Workbox precache + offline navigation fallback); update checks are
+  manual-only (Settings → Check for updates) and applying an update is
   deferred until no workout is active (`src/sw-register.ts`)
 - Pure logic: `metrics.ts` (Epley e1RM, volume, PRs), `recovery.ts` (6-day decay map),
   `suggest.ts` (seeded next-workout + overload prefill), `units.ts`, `timer.ts`, `backup.ts`,
