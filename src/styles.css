@@ -28,18 +28,17 @@
   --text-caption: 0.8125rem;
   --text-tab: 0.6875rem;
 }
-/* iOS 26.0–26.1 standalone regression: env(safe-area-inset-bottom) can
-   under-report (often flipping to 0 after in-app navigation), so the tab
-   bar's home-indicator band — and therefore the gap beneath the tab labels —
-   changes size between pages. The installed target is exactly one device
-   (iPhone 17 Pro Max, 34px indicator), so floor the inset inside installed
-   modes; env() still raises it if Apple ever changes the inset. Browser-tab
-   Safari matches neither display mode and keeps the plain env() value. */
-@media (display-mode: standalone), (display-mode: fullscreen) {
-  :root {
-    --safe-b: max(env(safe-area-inset-bottom, 0px), 34px);
-  }
-}
+/* iOS 26.0–26.1 standalone regression (WebKit bugs 254868/313800): the fixed
+   positioning context can end above the physical screen bottom, leaving an
+   "orphan strip" the page cannot occupy, and env(safe-area-inset-bottom)
+   flips to 0 exactly in that state. Partition the home-indicator zone:
+   padding uses raw env() — 34px when the viewport is healthy, 0 when the
+   strip exists (labels then sit at the viewport bottom, the lowest reachable
+   position) — and the tab bar's box-shadow overpaints a fixed device constant
+   below the bar so the strip is always bar-colored. Offscreen shadow excess
+   renders nothing, so the constant may safely exceed the actual strip (68px
+   covers the deeper under-report state of WebKit bug 322900; the installed
+   target is exactly one device — iPhone 17 Pro Max, 34px home indicator). */
 * {
   box-sizing: border-box;
 }
@@ -194,9 +193,10 @@ nav.tabbar {
   padding-bottom: var(--safe-b);
   background: var(--bg-soft);
   border-top: 1px solid var(--border);
-  /* Paint the bar color through the home-indicator zone so an iOS viewport
-     that under-reports its height can never show body background below. */
-  box-shadow: 0 var(--safe-b) 0 var(--bg-soft);
+  /* Orphan-strip overpaint (see the safe-area note at :root): paints the gap
+     between the fixed viewport bottom and the physical screen in any iOS 26
+     under-report state; excess extends offscreen and renders nothing. */
+  box-shadow: 0 68px 0 var(--bg-soft);
 }
 nav.tabbar a {
   position: relative;
