@@ -34,6 +34,10 @@ npm run lint       # eslint src tests scripts
 
 Deploy: copy `dist/` to any HTTPS static host (GitHub Pages workflow included). Install: Safari → Share → Add to Home Screen.
 
+## Verification
+
+After making changes, run the quality gates (`npm run build`, `npm test`, `npm run lint`) **and** preview locally: `npm run preview`, then open the served URL in your local browser and actually exercise the changed views/flows to confirm they render and behave correctly before reporting done.
+
 ## Layout
 
 - `index.html`, `public/manifest.webmanifest`, `public/icons/` (SW + Workbox runtime are generated into `dist/` at build time by vite-plugin-pwa)
@@ -48,4 +52,5 @@ Deploy: copy `dist/` to any HTTPS static host (GitHub Pages workflow included). 
 - Offline-first: every view must render usefully with no network after install.
 - Backup: Settings → Export JSON (full dump) / Export CSV (per-set rows) / Import JSON with preview counts, confirm, and UUID-dedupe merge. Unknown fields pass through.
 - Safety copy: first-run disclaimer gate; exercise detail includes "stop if sharp pain". Not medical advice.
+- Versioning: increment the `package.json` version on every push (baked into the build as `__APP_VERSION__`, shown in Settings → App updates).
 - v2 seams: `Template.programId`, `SuggestInput.programId`.
