@@ -414,6 +414,10 @@ input::placeholder {
 }
 .recovery-list li.rec-row {
   display: grid;
+  /* Explicit 1fr track: auto tracks cap at max-content, shrink-wrapping the
+     row (and its bar) to the label width and dead-spacing the card's right
+     side. minmax(0,·) caps the track so huge Dynamic Type wraps, not overflows. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 .rec-row-top {

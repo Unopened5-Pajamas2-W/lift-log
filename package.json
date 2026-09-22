@@ -1,7 +1,7 @@
 {
   "name": "ios-workout-pwa",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local-first iOS weight-lifting workout PWA (FitBod-lite; idb is the sole runtime dep)",
   "type": "module",
   "engines": {
