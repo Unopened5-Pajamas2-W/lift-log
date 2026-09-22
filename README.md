@@ -56,3 +56,9 @@ Settings → Export JSON (full dump) / Export CSV (per-set rows) / Import JSON
 - Not medical advice: first-run disclaimer gate; "stop if sharp pain" in exercise detail.
 - v2 seams (canned programs first, then file-sync/Health): `Template.programId`,
   `SuggestInput.programId`, backup unknown-field passthrough.
+
+## Credits
+
+- Recovery heatmap figure art: path data vendored from
+  [`react-native-body-highlighter`](https://github.com/HichamELBSI/react-native-body-highlighter)
+  (MIT) via `scripts/vendor-body-map.mjs`; see `THIRD_PARTY_NOTICES.md`.

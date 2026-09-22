@@ -371,32 +371,83 @@ input::placeholder {
   gap: 12px;
   align-items: start;
 }
-.body-map-label {
-  font-size: 7px;
-  font-weight: 800;
+.heatmap-col {
+  display: grid;
+  gap: 6px;
+}
+.heatmap-caption {
+  font-size: var(--text-caption);
+  color: var(--muted);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.body-map {
+  display: block;
+  width: 100%;
+  max-height: 300px;
+  margin: 0 auto;
+  filter: drop-shadow(0 1px 2px rgb(17 24 39 / 0.08));
+}
+.body-neutral {
+  fill: #e5e7eb;
+}
+.body-outline {
+  fill: none;
+  stroke: rgb(17 24 39 / 0.22);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.body-region {
+  cursor: pointer;
+}
+.body-region-shape {
+  stroke: rgb(255 255 255 / 0.5);
+  stroke-width: 1;
+}
+.body-region.is-selected {
+  filter: drop-shadow(0 0 3px rgb(29 78 216 / 0.5));
+}
+.body-region.is-selected .body-region-shape {
+  stroke: var(--accent);
+  stroke-width: 1.8;
+}
+.body-badge rect {
+  fill: rgb(17 24 39 / 0.4);
+}
+.body-badge text {
+  font-size: 42px;
+  font-weight: 700;
   fill: #ffffff;
-  stroke: rgb(17 24 39 / 0.55);
-  stroke-width: 2px;
-  paint-order: stroke;
 }
 .rec-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 8px;
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+}
+.rec-legend-bar {
+  position: relative;
+  height: 8px;
+  border-radius: 99px;
+  overflow: hidden;
+}
+.rec-legend-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgb(255 255 255 / 0.85);
+}
+.rec-legend-labels {
+  position: relative;
+  height: 16px;
   font-size: var(--text-caption);
   color: var(--muted);
 }
-.rec-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.rec-swatch {
-  width: 12px;
-  height: 12px;
-  border-radius: 4px;
-  display: inline-block;
+.rec-legend-labels span {
+  position: absolute;
+  transform: translateX(-50%);
 }
 .recovery-list {
   list-style: none;
@@ -429,6 +480,19 @@ input::placeholder {
 .rec-steppers {
   display: flex;
   gap: 8px;
+}
+.rec-steppers button {
+  width: 44px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+.recovery-list li.rec-row.is-selected {
+  background: rgb(29 78 216 / 0.07);
+  border-radius: 10px;
+  margin: -2px -8px;
+  padding: 2px 8px;
 }
 .bar {
   height: 8px;
