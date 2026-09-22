@@ -164,5 +164,9 @@ export async function renderApp(shell: HTMLElement): Promise<void> {
       ),
     );
   }
-  window.scrollTo({ top: 0 });
+  // Reset scroll only when the previous view left the document scrolled:
+  // on standalone iOS a scrollTo on an already-top, non-scrollable document
+  // can pan the visual viewport (WebKit bug 323322), shifting the whole
+  // screen — fixed tab bar included — and leaving blank space beneath it.
+  if (window.scrollY > 0) window.scrollTo({ top: 0 });
 }
