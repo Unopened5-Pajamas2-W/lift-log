@@ -86,6 +86,7 @@ export async function renderHistory(detailId?: string): Promise<HTMLElement> {
               set: s,
               index: i + 1,
               units: settings.units,
+              showRpe: true, // R15: RPE visible/editable in history detail
               onChange: async (next) => {
                 await upsertSet(next);
                 go(`/history/${w.id}`); // re-render recomputes derived stats

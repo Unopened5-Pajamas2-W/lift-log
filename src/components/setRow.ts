@@ -10,6 +10,8 @@ export interface SetRowOpts {
   index: number; // 1-based within exercise
   units: Units;
   suggestionKg?: number; // ghost suggestion hint (prefill happens at creation)
+  /** v2 R11: show the optional RPE stepper (working sets only; warmups never). */
+  showRpe?: boolean;
   onChange: (next: WorkoutSet) => void;
   onDelete: () => void;
 }
@@ -171,6 +173,76 @@ export function renderSetRow(opts: SetRowOpts): HTMLElement {
     ),
   );
 
+  // RPE stepper (v2 R11): working sets only, optional, clamp [1,10],
+  // half-steps land on 7.5/8.5/9.5 via the alternating ±0.5/±1 cadence.
+  const showRpeCell = opts.showRpe === true && !isWarmup;
+  const rpeCell = showRpeCell
+    ? (() => {
+        const RPE_STEPS = [1, 2, 3, 4, 5, 6, 7, 7.5, 8, 8.5, 9, 9.5, 10];
+        const rpeValue = h(
+          "span",
+          { class: "rpe-value", "data-focus-key": "rpe" },
+          set.rpe != null ? String(set.rpe) : "—",
+        );
+        const move = (dir: 1 | -1) => {
+          const cur = set.rpe ?? 7;
+          const i = RPE_STEPS.indexOf(cur);
+          const next =
+            i === -1
+              ? // Off-lattice value: snap to nearest step in the tap direction.
+                (RPE_STEPS.find((s) => dir > 0 ? s > cur : s < cur) ??
+                  (dir > 0 ? 10 : 1))
+              : RPE_STEPS[Math.min(RPE_STEPS.length - 1, Math.max(0, i + dir))];
+          rpeValue.textContent = next != null ? String(next) : "—";
+          opts.onChange({ ...readRow(), rpe: next });
+        };
+        const clear = () => {
+          rpeValue.textContent = "—";
+          opts.onChange({ ...readRow(), rpe: undefined });
+        };
+        const cell = h(
+          "td",
+          { class: "set-cell-rpe" },
+          h("span", { class: "field-label", "aria-hidden": "true" }, "RPE"),
+          h(
+            "span",
+            { class: "stepper rpe-stepper" },
+            h(
+              "button",
+              {
+                "aria-label": `Lower RPE for ${label}`,
+                "data-focus-key": "rpe-dec",
+                onclick: () => move(-1),
+              },
+              "−",
+            ),
+            rpeValue,
+            h(
+              "button",
+              {
+                "aria-label": `Raise RPE for ${label}`,
+                "data-focus-key": "rpe-inc",
+                onclick: () => move(1),
+              },
+              "+",
+            ),
+            h(
+              "button",
+              {
+                "aria-label": `Clear RPE for ${label}`,
+                "aria-hidden": "true",
+                tabindex: "-1",
+                class: "rpe-clear",
+                onclick: clear,
+              },
+              "×",
+            ),
+          ),
+        );
+        return cell;
+      })()
+    : null;
+
   const doneToggle = h(
     "button",
     {
@@ -199,6 +271,7 @@ export function renderSetRow(opts: SetRowOpts): HTMLElement {
     num,
     wCell,
     rCell,
+    ...(rpeCell ? [rpeCell] : []),
     h("td", { class: "set-cell-done" }, doneToggle),
     h("td", { class: "set-cell-actions" }, del),
   );

@@ -35,6 +35,7 @@ const ALL_STORES = [
   "workouts",
   "sets",
   "templates",
+  "programs",
   "settings",
   "meta",
 ] as const;

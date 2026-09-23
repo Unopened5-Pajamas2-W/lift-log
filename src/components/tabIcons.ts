@@ -7,6 +7,7 @@
 export type TabIconName =
   | "today"
   | "workout"
+  | "programs"
   | "moves"
   | "history"
   | "progress"
@@ -83,6 +84,16 @@ const ICON_DRAWERS: Record<TabIconName, (svg: SVGElement) => void> = {
     });
     el(svg, "line", { x1: "9", y1: "10", x2: "14", y2: "10" });
     el(svg, "line", { x1: "9", y1: "13.5", x2: "14", y2: "13.5" });
+  },
+  programs: (svg) => {
+    // Calendar/plan glyph: grid with one filled session day.
+    el(svg, "rect", { x: "3.5", y: "5", width: "17", height: "15.5", rx: "2" });
+    el(svg, "line", { x1: "3.5", y1: "9.5", x2: "20.5", y2: "9.5" });
+    el(svg, "line", { x1: "8", y1: "3", x2: "8", y2: "6.5" });
+    el(svg, "line", { x1: "16", y1: "3", x2: "16", y2: "6.5" });
+    el(svg, "line", { x1: "8", y1: "13", x2: "10.5", y2: "13" });
+    el(svg, "line", { x1: "13.5", y1: "13", x2: "16", y2: "13" });
+    el(svg, "line", { x1: "8", y1: "16.5", x2: "10.5", y2: "16.5" });
   },
   history: (svg) => {
     el(svg, "circle", { cx: "12", cy: "12", r: "8.5" });

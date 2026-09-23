@@ -13,6 +13,7 @@ import type {
 } from "./types.ts";
 import { mulberry32 } from "./rng.ts";
 import { overloadIncrementKg } from "./units.ts";
+import { doubleProgression } from "./progression.ts";
 
 export type Focus =
   "full-body" | "upper" | "lower" | "push" | "pull" | "custom";
@@ -261,7 +262,14 @@ export function generateWorkout(input: SuggestInput): {
   const warmedMuscles = new Set<MuscleGroup>();
   for (const { e, freshness, rec } of picked) {
     const last = input.lastPerformance.get(e.id) ?? [];
-    const suggestion = suggestNextWeight(last, e.primaryMuscle, input.units);
+    // v2 R12: generator items use double progression (default band 8→12);
+    // warmups excluded by the engine's session grouping.
+    const suggestion = doubleProgression({
+      lastSets: last,
+      primaryMuscle: e.primaryMuscle,
+      units: input.units,
+      now,
+    });
     const setCount = budgetMin <= 20 ? 2 : 3;
     const working = Array.from({ length: setCount }, () => ({
       weightKg: suggestion.weightKg,

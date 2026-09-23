@@ -4,6 +4,9 @@ import { ALL_EQUIPMENT } from "../data/muscles.ts";
 import type { MuscleGroup } from "../lib/types.ts";
 import {
   getActiveWorkout,
+  getExercise,
+  getProgram,
+  getSetsForExercise,
   listWorkouts,
   loadSettings,
   saveSettings,
@@ -11,8 +14,10 @@ import {
   startWorkout,
 } from "../lib/store.ts";
 import { generateWorkout } from "../lib/suggest.ts";
+import { doubleProgression } from "../lib/progression.ts";
 import { listExercises } from "../lib/store.ts";
 import { recoveryMap } from "../lib/recovery.ts";
+import { nextProgramSession, resolveProgramItem } from "../lib/programs.ts";
 import { randomSeed } from "../lib/rng.ts";
 import { go, h, toast } from "../lib/ui.ts";
 
@@ -46,6 +51,180 @@ export async function renderToday(): Promise<HTMLElement> {
     }),
   );
   root.appendChild(card);
+
+  // --- Program card (v2): next scheduled session of the active program ---
+  if (settings.activeProgramId) {
+    const program = await getProgram(settings.activeProgramId);
+    if (!program) {
+      // Locked edge case: deleted program while active — explicit card, no
+      // silent fallback to the generator.
+      root.appendChild(
+        h(
+          "div",
+          { class: "card" },
+          h("strong", {}, "Program unavailable"),
+          h("p", { class: "muted" }, "The active program no longer exists."),
+          h(
+            "button",
+            {
+              onclick: async () => {
+                try {
+                  await saveSettings({ activeProgramId: undefined });
+                  go("/today");
+                } catch (err) {
+                  console.error(err);
+                  toast("Couldn't deactivate — storage unavailable. Retry.");
+                }
+              },
+            },
+            "Deactivate",
+          ),
+        ),
+      );
+    } else if (program.isArchived) {
+      // Archived programs stop scheduling but stay deactivatable.
+      root.appendChild(
+        h(
+          "div",
+          { class: "card" },
+          h("strong", {}, `${program.name} (archived)`),
+          h(
+            "button",
+            {
+              onclick: async () => {
+                try {
+                  await saveSettings({ activeProgramId: undefined });
+                  go("/today");
+                } catch (err) {
+                  console.error(err);
+                  toast("Couldn't deactivate — storage unavailable. Retry.");
+                }
+              },
+            },
+            "Deactivate",
+          ),
+        ),
+      );
+    } else if ((program.weeks[0]?.days.length ?? 0) === 0) {
+      root.appendChild(
+        h(
+          "div",
+          { class: "card" },
+          h("strong", {}, program.name),
+          h("p", { class: "muted" }, "This program has no days yet."),
+          h("button", { onclick: () => go(`/programs/${program.id}`) }, "Edit"),
+        ),
+      );
+    } else {
+      const completed = (await listWorkouts("completed", 1000)).filter(
+        (w) => w.programId === program.id,
+      );
+      const slot = nextProgramSession(program, completed);
+      const day = program.weeks[slot.weekIndex]?.days[slot.dayIndex];
+      if (day) {
+        const names = await Promise.all(
+          day.items.map(async (it) => {
+            const ex = await getExercise(it.exerciseId).catch(() => undefined);
+            return ex?.name ?? "Missing exercise";
+          }),
+        );
+        const label = slot.cycleComplete
+          ? `Cycle ${slot.cycleCount + 1} begins — Week 1 Day 1`
+          : `Week ${slot.weekIndex + 1} · Day ${slot.dayIndex + 1}`;
+        root.appendChild(
+          h(
+            "div",
+            { class: "card" },
+            h("strong", {}, program.name),
+            h("p", { class: "muted" }, `${label} — ${day.name}`),
+            h("ul", {}, ...names.map((n) => h("li", {}, n))),
+            h(
+              "button",
+              {
+                class: "primary",
+                onclick: async (e) => {
+                  const btn = e.currentTarget as HTMLButtonElement | null;
+                  btn?.setAttribute("disabled", "true");
+                  try {
+                    // Prefill prescribed sets; missing exercises become
+                    // skippable muted rows in the workout view (R10).
+                    const items: {
+                      exerciseId: string;
+                      sets: { weightKg: number; reps: number }[];
+                    }[] = [];
+                    for (const it of day.items) {
+                      const ex = await getExercise(it.exerciseId).catch(
+                        () => undefined,
+                      );
+                      if (!ex) continue;
+                      const history = (await getSetsForExercise(it.exerciseId))
+                        .filter((s) => s.completed);
+                      if (
+                        it.scheme?.kind === "sets-reps" ||
+                        it.scheme?.kind === "percent"
+                      ) {
+                        // Prescribed schemes win — exact prefill, no engine.
+                        const prescribed = resolveProgramItem(it, {});
+                        if (prescribed && prescribed.length > 0) {
+                          items.push({
+                            exerciseId: it.exerciseId,
+                            sets: prescribed,
+                          });
+                          continue;
+                        }
+                      }
+                      // Engine path: double progression off history. Double
+                      // schemes prescribe the set count; scheme-less items
+                      // prefill one working set (the workout view adds more).
+                      const engine = doubleProgression({
+                        lastSets: history,
+                        band:
+                          it.scheme?.kind === "double"
+                            ? {
+                                minReps: it.scheme.minReps,
+                                maxReps: it.scheme.maxReps,
+                              }
+                            : undefined,
+                        primaryMuscle: ex.primaryMuscle,
+                        units: settings.units,
+                        now: Date.now(),
+                      });
+                      items.push({
+                        exerciseId: it.exerciseId,
+                        sets:
+                          it.scheme?.kind === "double"
+                            ? Array.from(
+                                { length: it.scheme.sets },
+                                () => ({
+                                  weightKg: engine.weightKg,
+                                  reps: engine.reps,
+                                }),
+                              )
+                            : [{ weightKg: engine.weightKg, reps: engine.reps }],
+                      });
+                    }
+                    const w = await startWorkout({
+                      title: `${program.name} — ${day.name}`,
+                      programId: program.id,
+                      programWeek: slot.weekIndex,
+                      programDayIndex: slot.dayIndex,
+                      items,
+                    });
+                    go(`/workout/${w.id}`);
+                  } catch (err) {
+                    console.error(err);
+                    btn?.removeAttribute("disabled");
+                    toast("Couldn't start session — storage unavailable. Retry.");
+                  }
+                },
+              },
+              "Start session",
+            ),
+          ),
+        );
+      }
+    }
+  }
 
   const active = await getActiveWorkout();
   if (active) {

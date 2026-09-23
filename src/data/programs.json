@@ -1,0 +1,259 @@
+[
+  {
+    "id": "prog-531-beginners",
+    "name": "5/3/1 for Beginners (example)",
+    "description": "Classic 5/3/1 monthly progression on the big lifts at 85% of your true 1RM (the training max), plus accessories by feel. Edit the training maxes to match your lifts.",
+    "weeks": [
+      {
+        "label": "Week 1 — 65/75/85%",
+        "days": [
+          {
+            "name": "Squat + Push",
+            "items": [
+              {
+                "exerciseId": "back-squat",
+                "scheme": { "kind": "percent", "sets": [{ "pct": 0.65, "reps": 5 }, { "pct": 0.75, "reps": 5 }, { "pct": 0.85, "reps": 5 }] },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "dumbbell-bench-press",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              },
+              {
+                "exerciseId": "triceps-pushdown",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 10, "maxReps": 15 }
+              },
+              {
+                "exerciseId": "lateral-raise"
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Pull",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": { "kind": "percent", "sets": [{ "pct": 0.65, "reps": 5 }, { "pct": 0.75, "reps": 5 }, { "pct": 0.85, "reps": 5 }] },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "lat-pulldown",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              },
+              {
+                "exerciseId": "barbell-curl",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              }
+            ]
+          },
+          {
+            "name": "Bench + Push",
+            "items": [
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": { "kind": "percent", "sets": [{ "pct": 0.65, "reps": 5 }, { "pct": 0.75, "reps": 5 }, { "pct": 0.85, "reps": 5 }] },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "overhead-press",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              },
+              {
+                "exerciseId": "dips-chest",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Week 2 — 70/80/90%",
+        "days": [
+          {
+            "name": "Squat + Push",
+            "items": [
+              {
+                "exerciseId": "back-squat",
+                "scheme": { "kind": "percent", "sets": [{ "pct": 0.7, "reps": 3 }, { "pct": 0.8, "reps": 3 }, { "pct": 0.9, "reps": 3 }] },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "dumbbell-bench-press",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              },
+              {
+                "exerciseId": "triceps-pushdown",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 10, "maxReps": 15 }
+              },
+              {
+                "exerciseId": "lateral-raise"
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Pull",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": { "kind": "percent", "sets": [{ "pct": 0.7, "reps": 3 }, { "pct": 0.8, "reps": 3 }, { "pct": 0.9, "reps": 3 }] },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "lat-pulldown",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              },
+              {
+                "exerciseId": "barbell-curl",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              }
+            ]
+          },
+          {
+            "name": "Bench + Push",
+            "items": [
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": { "kind": "percent", "sets": [{ "pct": 0.7, "reps": 3 }, { "pct": 0.8, "reps": 3 }, { "pct": 0.9, "reps": 3 }] },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "overhead-press",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              },
+              {
+                "exerciseId": "dips-chest",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Week 3 — 75/85/95%",
+        "days": [
+          {
+            "name": "Squat + Push",
+            "items": [
+              {
+                "exerciseId": "back-squat",
+                "scheme": { "kind": "percent", "sets": [{ "pct": 0.75, "reps": 5 }, { "pct": 0.85, "reps": 3 }, { "pct": 0.95, "reps": 1 }] },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "dumbbell-bench-press",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              },
+              {
+                "exerciseId": "triceps-pushdown",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 10, "maxReps": 15 }
+              },
+              {
+                "exerciseId": "lateral-raise"
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Pull",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": { "kind": "percent", "sets": [{ "pct": 0.75, "reps": 5 }, { "pct": 0.85, "reps": 3 }, { "pct": 0.95, "reps": 1 }] },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "lat-pulldown",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              },
+              {
+                "exerciseId": "barbell-curl",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              }
+            ]
+          },
+          {
+            "name": "Bench + Push",
+            "items": [
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": { "kind": "percent", "sets": [{ "pct": 0.75, "reps": 5 }, { "pct": 0.85, "reps": 3 }, { "pct": 0.95, "reps": 1 }] },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "overhead-press",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              },
+              {
+                "exerciseId": "dips-chest",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Week 4 — Deload 40/50/60%",
+        "days": [
+          {
+            "name": "Squat + Push",
+            "items": [
+              {
+                "exerciseId": "back-squat",
+                "scheme": { "kind": "percent", "sets": [{ "pct": 0.4, "reps": 5 }, { "pct": 0.5, "reps": 5 }, { "pct": 0.6, "reps": 5 }] },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "dumbbell-bench-press",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              },
+              {
+                "exerciseId": "triceps-pushdown",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 10, "maxReps": 15 }
+              },
+              {
+                "exerciseId": "lateral-raise"
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Pull",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": { "kind": "percent", "sets": [{ "pct": 0.4, "reps": 5 }, { "pct": 0.5, "reps": 5 }, { "pct": 0.6, "reps": 5 }] },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "lat-pulldown",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              },
+              {
+                "exerciseId": "barbell-curl",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              }
+            ]
+          },
+          {
+            "name": "Bench + Push",
+            "items": [
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": { "kind": "percent", "sets": [{ "pct": 0.4, "reps": 5 }, { "pct": 0.5, "reps": 5 }, { "pct": 0.6, "reps": 5 }] },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "overhead-press",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              },
+              {
+                "exerciseId": "dips-chest",
+                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "createdAt": 0,
+    "updatedAt": 0
+  }
+]

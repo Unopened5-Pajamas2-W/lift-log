@@ -426,6 +426,7 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
         index,
         units: settings.units,
         suggestionKg: sugg,
+        showRpe: true,
         onChange: (next) => {
           // Sync within the tap's call stack: iOS unlocks audio by gesture only.
           if (next.completed && !set.completed) ensureAudio();
@@ -461,7 +462,7 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
           if (next.isWarmup !== true) rest.start(settings.restSeconds); // restarts if already running (R4)
           void clearTrainedOverrides(ex);
         }
-        if (next.completed !== prev.completed) patchRow(next, index, makeRow);
+        if (next.completed !== prev.completed || next.rpe !== prev.rpe) patchRow(next, index, makeRow);
         // Weight/reps-only edits: inputs already show the values; touching the
         // DOM would drop the open keyboard, so leave the row alone.
       } catch (err) {

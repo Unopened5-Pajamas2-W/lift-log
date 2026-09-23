@@ -54,6 +54,10 @@ export interface Workout {
   templateId?: string;
   seed?: number;
   notes?: string;
+  /** v2: linkage to the program slot this workout was started from (derived progress inputs). */
+  programId?: string;
+  programWeek?: number;
+  programDayIndex?: number;
 }
 
 export interface WorkoutSet {
@@ -98,11 +102,50 @@ export interface Settings {
   barWeightKg: number;
   recoveryOverrides: Partial<Record<MuscleGroup, number | null>>;
   disclaimerAccepted: boolean;
+  /** v2: id of the single active program; absent = none. */
+  activeProgramId?: string;
   /** v2 seam: unknown future fields (sync, health) survive backup round-trips. */
   [key: string]: unknown;
 }
 
-export const SCHEMA_VERSION = 1;
+/** v2 program schemes. Discriminated by `kind` so validation stays local.
+ * - "sets-reps": exact sets × reps at a fixed weight (weightKg absent = engine-suggested).
+ * - "percent": % of a per-lift training max (5/3/1 style), exact math — never engine- or RPE-adjusted.
+ * - "double": reps band; the global double-progression engine moves weight/reps within it.
+ */
+export type ProgramScheme =
+  | { kind: "sets-reps"; sets: number; reps: number; weightKg?: number }
+  | { kind: "percent"; sets: { pct: number; reps: number }[] }
+  | { kind: "double"; sets: number; minReps: number; maxReps: number };
+
+export interface ProgramItem {
+  exerciseId: string;
+  scheme?: ProgramScheme;
+  /** Required when scheme.kind === "percent" (user-entered training max, canonical kg). */
+  trainingMaxKg?: number;
+}
+
+export interface ProgramDay {
+  name: string;
+  items: ProgramItem[];
+}
+
+export interface ProgramWeek {
+  label: string;
+  days: ProgramDay[];
+}
+
+export interface Program {
+  id: string;
+  name: string;
+  description?: string;
+  weeks: ProgramWeek[];
+  isArchived?: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export const SCHEMA_VERSION = 2;
 export const DB_NAME = "workout-pwa";
 
 /** Typed IndexedDB layout (idb DBSchema): store → key/value/index types. */
@@ -129,6 +172,7 @@ export interface LiftLogDB extends DBSchema {
     };
   };
   templates: { key: string; value: Template };
+  programs: { key: string; value: Program };
   settings: { key: string; value: Settings };
   meta: { key: string; value: { id: string; schemaVersion: number } };
 }

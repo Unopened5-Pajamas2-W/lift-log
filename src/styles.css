@@ -304,7 +304,8 @@ nav.tabbar a[aria-current="page"]::before {
     grid-template-columns: 1fr auto auto;
     grid-template-areas:
       "num done actions"
-      "weight weight reps";
+      "weight weight reps"
+      "rpe rpe rpe";
     gap: 4px 8px;
     align-items: center;
     padding: 6px 0;
@@ -338,10 +339,26 @@ nav.tabbar a[aria-current="page"]::before {
     grid-area: reps;
     min-width: 0;
   }
-  .set-cell-weight,
-  .set-cell-reps {
+  /* RPE cell (v2 R11): slots into the weight/reps row, compact steppers. */
+  .set-cell-rpe {
+    grid-area: rpe;
     display: grid;
     gap: 2px;
+    min-width: 0;
+  }
+  .set-cell-rpe .rpe-value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    text-align: center;
+    min-width: 4ch;
+    align-self: center;
+  }
+  .set-cell-rpe .rpe-stepper button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .set-cell-rpe .rpe-clear {
+    color: var(--muted);
   }
   .field-label {
     display: block;

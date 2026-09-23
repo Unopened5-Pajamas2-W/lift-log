@@ -6,6 +6,7 @@ import { renderToday } from "./views/today.ts";
 import { renderWorkout } from "./views/workout.ts";
 import { renderExercises } from "./views/exercises.ts";
 import { renderExerciseProgress } from "./views/exerciseProgress.ts";
+import { renderPrograms, renderProgramEditor } from "./views/programs.ts";
 import { getActiveWorkout, loadSettings, saveSettings } from "./lib/store.ts";
 import { go, h } from "./lib/ui.ts";
 import { tabIcon, type TabIconName } from "./components/tabIcons.ts";
@@ -13,6 +14,7 @@ import { tabIcon, type TabIconName } from "./components/tabIcons.ts";
 const TABS = [
   { path: "/today", label: "Today", icon: "today" },
   { path: "/workout", label: "Workout", icon: "workout" },
+  { path: "/programs", label: "Programs", icon: "programs" },
   { path: "/exercises", label: "Moves", icon: "moves" },
   { path: "/history", label: "History", icon: "history" },
   { path: "/progress", label: "Progress", icon: "progress" },
@@ -67,6 +69,7 @@ function disclaimerGate(onAccept: () => void): HTMLElement {
 function titles(path: string): string {
   if (path.startsWith("/workout")) return "Workout";
   if (path.startsWith("/exercises")) return "Exercises";
+  if (path.startsWith("/programs")) return "Programs";
   if (path.startsWith("/history")) return "History";
   if (path.startsWith("/progress")) return "Progress";
   if (path.startsWith("/settings")) return "Settings";
@@ -111,6 +114,13 @@ export async function renderApp(shell: HTMLElement): Promise<void> {
     } else if (path.startsWith("/workout/"))
       view.appendChild(
         await renderWorkout(decodeURIComponent(path.slice("/workout/".length))),
+      );
+    else if (path === "/programs") view.appendChild(await renderPrograms());
+    else if (path.startsWith("/programs/"))
+      view.appendChild(
+        await renderProgramEditor(
+          decodeURIComponent(path.slice("/programs/".length)),
+        ),
       );
     else if (path === "/exercises") view.appendChild(await renderExercises());
     else if (path.startsWith("/exercises/"))

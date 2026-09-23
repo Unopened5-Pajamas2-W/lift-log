@@ -5,9 +5,11 @@ import type { RestoreResult, ValidRow } from "./backup.ts";
 import { ALL_EQUIPMENT } from "../data/muscles.ts";
 import seedExercises from "../data/exercises.json";
 import seedTemplates from "../data/templates.json";
+import seedPrograms from "../data/programs.json";
 import type {
   Equipment,
   Exercise,
+  Program,
   Settings,
   Template,
   Workout,
@@ -20,6 +22,7 @@ export const STORES = [
   "workouts",
   "sets",
   "templates",
+  "programs",
   "settings",
   "meta",
 ] as const;
@@ -46,6 +49,8 @@ function upgradeDb(db: Db): void {
   }
   if (!db.objectStoreNames.contains("templates"))
     db.createObjectStore("templates", { keyPath: "id" });
+  if (!db.objectStoreNames.contains("programs"))
+    db.createObjectStore("programs", { keyPath: "id" });
   if (!db.objectStoreNames.contains("settings"))
     db.createObjectStore("settings", { keyPath: "id" });
   if (!db.objectStoreNames.contains("meta"))
@@ -197,6 +202,20 @@ export async function ensureSeeded(): Promise<void> {
     const os = tx.objectStore("templates");
     for (const t of missingTemplates) void track(os.put(t));
   });
+  const programIds = new Set((await db.getAll("programs")).map((p) => p.id));
+  const missingPrograms: Program[] = (
+    seedPrograms as Omit<Program, "createdAt" | "updatedAt">[]
+  )
+    .filter((p) => !programIds.has(p.id))
+    .map((p) => ({
+      ...p,
+      createdAt: now,
+      updatedAt: now,
+    }));
+  await writeTx(db, ["programs"], (tx, track) => {
+    const os = tx.objectStore("programs");
+    for (const p of missingPrograms) void track(os.put(p));
+  });
   const settings = await db.get("settings", "app");
   if (!settings) await db.put("settings", defaultSettings());
   const meta = await db.get("meta", "meta");
@@ -285,15 +304,20 @@ export async function getActiveWorkout(): Promise<Workout | undefined> {
 /** In-flight start guard: rapid double-taps share one creation. */
 let starting: Promise<Workout> | null = null;
 
-export function startWorkout(input: {
+export interface StartWorkoutInput {
   title: string;
   templateId?: string;
   seed?: number;
+  programId?: string;
+  programWeek?: number;
+  programDayIndex?: number;
   items?: {
     exerciseId: string;
     sets: { weightKg: number; reps: number; isWarmup?: boolean }[];
   }[];
-}): Promise<Workout> {
+}
+
+export function startWorkout(input: StartWorkoutInput): Promise<Workout> {
   if (!starting) {
     starting = startWorkoutInner(input).finally(() => {
       starting = null;
@@ -302,15 +326,7 @@ export function startWorkout(input: {
   return starting;
 }
 
-async function startWorkoutInner(input: {
-  title: string;
-  templateId?: string;
-  seed?: number;
-  items?: {
-    exerciseId: string;
-    sets: { weightKg: number; reps: number; isWarmup?: boolean }[];
-  }[];
-}): Promise<Workout> {
+async function startWorkoutInner(input: StartWorkoutInput): Promise<Workout> {
   const existing = await getActiveWorkout();
   if (existing) return existing; // singleton invariant
   const db = await getDb();
@@ -322,6 +338,9 @@ async function startWorkoutInner(input: {
     status: "active",
     templateId: input.templateId,
     seed: input.seed,
+    programId: input.programId,
+    programWeek: input.programWeek,
+    programDayIndex: input.programDayIndex,
   };
   const sets: WorkoutSet[] = [];
   if (input.items) {
@@ -443,6 +462,37 @@ export async function saveTemplate(t: Template): Promise<void> {
 export async function deleteTemplate(id: string): Promise<void> {
   const db = await getDb();
   await db.delete("templates", id);
+}
+
+// --- programs (v2) ---
+export async function listPrograms(
+  includeArchived = false,
+): Promise<Program[]> {
+  const db = await getDb();
+  const all = await db.getAll("programs");
+  const list = includeArchived ? all : all.filter((p) => !p.isArchived);
+  return list.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function getProgram(id: string): Promise<Program | undefined> {
+  const db = await getDb();
+  return db.get("programs", id);
+}
+
+export async function saveProgram(p: Program): Promise<void> {
+  const db = await getDb();
+  await db.put("programs", p);
+}
+
+/** Deletes the program and, if it was active, clears the active pointer
+ *  (Today must show the explicit "Program unavailable" card only for a
+ *  genuinely stale pointer — a plain delete self-cleans). */
+export async function deleteProgram(id: string): Promise<void> {
+  const db = await getDb();
+  const settings = await db.get("settings", "app");
+  if (settings?.activeProgramId === id)
+    await db.put("settings", { ...settings, activeProgramId: undefined });
+  await db.delete("programs", id);
 }
 
 /** Full dump for backup export (v2: preserve unknown fields). */
