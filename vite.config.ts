@@ -27,6 +27,9 @@ export default defineConfig({
       workbox: {
         navigateFallback: "index.html",
         cleanupOutdatedCaches: true,
+        // Notification-tap relay (see public/sw-notifications.js); runs inside
+        // the generated worker alongside Workbox's precache routing.
+        importScripts: ["sw-notifications.js"],
       },
     }),
   ],

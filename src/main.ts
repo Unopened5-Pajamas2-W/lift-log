@@ -2,6 +2,7 @@
 import { renderApp } from "./app.ts";
 import { ensureSeeded, getActiveWorkout } from "./lib/store.ts";
 import { registerServiceWorker } from "./sw-register.ts";
+import { listenForNotificationClicks } from "./lib/notify.ts";
 import "./styles.css";
 
 declare const __APP_VERSION__: string;
@@ -24,6 +25,7 @@ async function boot(): Promise<void> {
         .catch(() => false),
   });
   const render = () => renderApp(shell).catch(console.error);
+  listenForNotificationClicks();
   window.addEventListener("hashchange", render);
   if (!location.hash) location.hash = "#/today";
   await renderApp(shell);

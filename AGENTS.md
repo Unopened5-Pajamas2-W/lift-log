@@ -19,7 +19,11 @@ Note: history (`README.md`, `vite.config.ts`) says "zero runtime deps" — that 
 
 1. **Mobile only — never desktop.** No desktop layouts, wide breakpoints, hover-only interactions, or keyboard-first flows. Touch-sized targets and thumb-reach placement win.
 2. **Only device: iPhone 17 Pro Max.** Current Safari (standalone `display: fullscreen` via Add to Home Screen) is the baseline. Do not add workarounds, polyfills, degraded layouts, or testing for older/smaller iPhones, old Safari, or Android.
-3. **Consequences:** modern Safari APIs are fair game, `es2022` build target stands, system font + inline SVG + WebAudio (no remote assets).
+3. **Jared's device settings (must be accounted for in all UI work):**
+   - Display & Brightness → Display Zoom: **"Larger Text"** (not "Default") — the viewport is smaller than a Default-zoom iPhone 17 Pro Max.
+   - Text size: **6th largest of 7** (Dynamic Type) — text is rendered large; always support/inherit Dynamic Type, never hard-code font sizes that break it.
+   - Layout consequences: assume less horizontal space and larger text than default. Watch for overflow, wrapping, truncation, and squeezed rows/columns; prefer vertical stacking and flexible widths over fixed-size multi-column layouts.
+4. **Consequences:** modern Safari APIs are fair game, `es2022` build target stands, system font + inline SVG + WebAudio (no remote assets).
 
 ## Commands
 

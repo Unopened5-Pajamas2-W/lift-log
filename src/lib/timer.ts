@@ -1,5 +1,12 @@
 /** Rest timer: deadline-derived countdown, gesture-unlocked WebAudio triple-beep,
- *  document.title countdown/flash. All channels best-effort, zero dependencies. */
+ *  document.title countdown/flash. All channels best-effort, zero dependencies.
+ *  While running, a near-silent audio loop keeps iOS from suspending the page,
+ *  so the expiry beep + notification still fire with the screen off. */
+import {
+  notifyRestCancelled,
+  notifyRestDone,
+} from "./notify.ts";
+
 export interface RestTimer {
   remaining: number;
   total: number;
@@ -51,6 +58,36 @@ function playBeepOnce(ctx: AudioContext): void {
   } catch {
     /* best-effort */
   }
+}
+
+// --- silent keep-alive (undocumented but standard timer-PWA practice on iOS:
+// a running audio node keeps the web app active with the screen off) ---
+let keepAliveOsc: OscillatorNode | null = null;
+
+function startKeepAlive(): void {
+  const ctx = audioCtx;
+  if (!ctx || keepAliveOsc) return;
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 30; // below hearing range
+    gain.gain.value = 0.0001; // effectively silent
+    osc.start();
+    keepAliveOsc = osc;
+  } catch {
+    keepAliveOsc = null;
+  }
+}
+
+function stopKeepAlive(): void {
+  try {
+    keepAliveOsc?.stop();
+  } catch {
+    /* already stopped */
+  }
+  keepAliveOsc = null;
 }
 
 let savedTitle: string | null = null;
@@ -134,6 +171,8 @@ export function createRestTimer(opts: {
     opts.onTick(0);
     tripleBeep();
     flashTitleDone();
+    stopKeepAlive();
+    notifyRestDone(total);
     opts.onDone();
   }
 
@@ -159,6 +198,8 @@ export function createRestTimer(opts: {
       endAt = Date.now() + seconds * 1000;
       running = true;
       lastSecond = -1;
+      startKeepAlive();
+      notifyRestCancelled(); // clear any stale "rest done" notification
       if (iv !== null) window.clearInterval(iv);
       iv = window.setInterval(tick, TICK_MS);
       tick();
@@ -168,6 +209,8 @@ export function createRestTimer(opts: {
       if (iv !== null) window.clearInterval(iv);
       iv = null;
       restoreTitle();
+      stopKeepAlive();
+      notifyRestCancelled();
     },
     adjust(delta) {
       endAt = Math.max(Date.now(), endAt + delta * 1000);
@@ -181,6 +224,7 @@ export function createRestTimer(opts: {
       this.stop();
       for (const t of beepTimeouts) window.clearTimeout(t);
       beepTimeouts = [];
+      stopKeepAlive();
       // The AudioContext is shared and app-lifetime: never close it here.
     },
   };

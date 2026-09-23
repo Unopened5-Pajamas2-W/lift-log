@@ -165,7 +165,7 @@ describe("triple-beep + title lifecycle", () => {
     vi.advanceTimersByTime(1000); // reach expiry
     expect(done).toBe(1);
     vi.advanceTimersByTime(700); // fire the 0/300/600 ms beep timeouts
-    expect(ctx.oscillatorCalls - before).toBe(3);
+    expect(ctx.oscillatorCalls - before).toBe(4); // 3 beeps + 1 keep-alive osc
     timer.dispose();
   });
 
@@ -186,7 +186,7 @@ describe("triple-beep + title lifecycle", () => {
     vi.advanceTimersByTime(1000);
     vi.advanceTimersByTime(700);
     expect(done).toBe(1);
-    expect(ctx.oscillatorCalls - before).toBe(0);
+    expect(ctx.oscillatorCalls - before).toBe(1); // keep-alive only, no beeps
     vi.advanceTimersByTime(1000);
     expect(document.title).toBe("Rest done — go!");
     timer.dispose();

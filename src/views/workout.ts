@@ -30,6 +30,7 @@ import {
 } from "../lib/suggest.ts";
 import { recoveryMap } from "../lib/recovery.ts";
 import { ensureAudio } from "../lib/timer.ts";
+import { setRestNotifyEnabled } from "../lib/notify.ts";
 import { plateBreakdown, formatPlateLine } from "../lib/plates.ts";
 import type { Exercise, MuscleGroup, WorkoutSet } from "../lib/types.ts";
 import { displayWeight } from "../lib/units.ts";
@@ -67,6 +68,7 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
     );
   }
   const settings = await loadSettings();
+  setRestNotifyEnabled(settings.restNotify);
   const workoutId = workout.id;
   const sets = await getSets(workoutId);
 

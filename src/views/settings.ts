@@ -27,6 +27,11 @@ import type { UpdateCheckResult } from "../sw-register.ts";
 import { displayWeight } from "../lib/units.ts";
 import { barInputToKg } from "../lib/plates.ts";
 import { fmtDate, go, h, toast } from "../lib/ui.ts";
+import {
+  notifyRestDone,
+  requestRestNotifyPermission,
+  setRestNotifyEnabled,
+} from "../lib/notify.ts";
 
 declare const __APP_VERSION__: string;
 
@@ -147,6 +152,47 @@ export async function renderSettings(): Promise<HTMLElement> {
     }
   });
 
+  // Rest notifications: the iOS permission prompt must be triggered by a
+  // direct tap, so the checkbox change handler owns the request.
+  setRestNotifyEnabled(settings.restNotify);
+  const notifyCb = h("input", {
+    type: "checkbox",
+    checked: settings.restNotify && Notification.permission === "granted" ? true : undefined,
+    "aria-label": "Notify when rest timer completes",
+  }) as HTMLInputElement;
+  const notifyHint = h("p", { class: "muted" }, "");
+  const syncNotifyUi = (): void => {
+    const granted = typeof Notification !== "undefined" && Notification.permission === "granted";
+    notifyCb.checked = settings.restNotify && granted;
+    notifyHint.textContent = granted
+      ? "Shows a system notification (and badge) when a rest timer finishes while the screen is off."
+      : "Requires the Add to Home Screen app and permission. If denied, enable it in iOS Settings → Safari → Notifications.";
+  };
+  syncNotifyUi();
+  notifyCb.addEventListener("change", async () => {
+    if (notifyCb.checked) {
+      const granted = await requestRestNotifyPermission();
+      try {
+        settings = await saveSettings({ restNotify: granted });
+        setRestNotifyEnabled(granted);
+        if (granted) notifyRestDone(settings.restSeconds); // visible test notification
+        else toast("Permission denied — enable in iOS Settings.");
+      } catch (err) {
+        console.error(err);
+        toast("Couldn't save — storage unavailable. Retry.");
+      }
+    } else {
+      try {
+        settings = await saveSettings({ restNotify: false });
+        setRestNotifyEnabled(false);
+      } catch (err) {
+        console.error(err);
+        toast("Couldn't save — storage unavailable. Retry.");
+      }
+    }
+    syncNotifyUi();
+  });
+
   // Bar weight for the plate calculator (stored canonical kg, shown in units)
   const barInput = h("input", {
     type: "number",
@@ -203,6 +249,8 @@ export async function renderSettings(): Promise<HTMLElement> {
       h("strong", {}, "Preferences"),
       h("label", {}, "Units (stored as kg, displayed converted)", unitsSel),
       h("label", {}, "Default rest (seconds)", restInput),
+      h("label", { class: "row" }, notifyCb, h("span", {}, "Rest notifications")),
+      notifyHint,
       h("label", {}, "Bar weight (for plate math)", barInput),
     ),
     h(

@@ -98,6 +98,9 @@ export interface Settings {
   units: Units;
   equipment: Equipment[];
   restSeconds: number;
+  /** Show a local notification when the rest timer completes (SW-based,
+   *  permission granted via the Settings toggle tap). */
+  restNotify: boolean;
   /** Olympic/bar weight in canonical kg for the plate calculator. Default 20. */
   barWeightKg: number;
   recoveryOverrides: Partial<Record<MuscleGroup, number | null>>;
