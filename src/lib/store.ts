@@ -152,10 +152,10 @@ export function defaultSettings(): Settings {
     units: "lb",
     equipment: [...ALL_EQUIPMENT],
     restSeconds: 90,
-    restNotify: false,
     barWeightKg: 20,
     recoveryOverrides: {},
     disclaimerAccepted: false,
+    restNotify: false,
   };
 }
 

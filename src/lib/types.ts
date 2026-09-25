@@ -31,6 +31,8 @@ export type Difficulty = "beginner" | "intermediate" | "advanced";
 export interface Exercise {
   id: string;
   name: string;
+  /** Optional alternate names matched by exercise search. */
+  aliases?: string[];
   primaryMuscle: MuscleGroup;
   secondaryMuscles: MuscleGroup[];
   equipment: Equipment;
@@ -98,13 +100,12 @@ export interface Settings {
   units: Units;
   equipment: Equipment[];
   restSeconds: number;
-  /** Show a local notification when the rest timer completes (SW-based,
-   *  permission granted via the Settings toggle tap). */
-  restNotify: boolean;
   /** Olympic/bar weight in canonical kg for the plate calculator. Default 20. */
   barWeightKg: number;
   recoveryOverrides: Partial<Record<MuscleGroup, number | null>>;
   disclaimerAccepted: boolean;
+  /** Rest-timer system notification toggle (local SW notification, iOS). */
+  restNotify: boolean;
   /** v2: id of the single active program; absent = none. */
   activeProgramId?: string;
   /** v2 seam: unknown future fields (sync, health) survive backup round-trips. */

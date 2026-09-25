@@ -30,9 +30,15 @@ import {
 } from "../lib/suggest.ts";
 import { recoveryMap } from "../lib/recovery.ts";
 import { ensureAudio } from "../lib/timer.ts";
-import { setRestNotifyEnabled } from "../lib/notify.ts";
 import { plateBreakdown, formatPlateLine } from "../lib/plates.ts";
-import type { Exercise, MuscleGroup, WorkoutSet } from "../lib/types.ts";
+import { getProgram } from "../lib/store.ts";
+import { resolveProgramItem } from "../lib/programs.ts";
+import { doubleProgression } from "../lib/progression.ts";
+import type {
+  Exercise,
+  MuscleGroup,
+  WorkoutSet,
+} from "../lib/types.ts";
 import { displayWeight } from "../lib/units.ts";
 import { go, h, toast } from "../lib/ui.ts";
 
@@ -68,7 +74,6 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
     );
   }
   const settings = await loadSettings();
-  setRestNotifyEnabled(settings.restNotify);
   const workoutId = workout.id;
   const sets = await getSets(workoutId);
 
@@ -214,16 +219,67 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
         });
       }
     }
-    rows.push({
-      id: uuid(),
-      workoutId,
-      exerciseId,
-      order: order++,
-      weightKg: workingKg, // R3 prefill
-      reps: 8,
-      completed: false,
-      createdAt: nowTs,
-    });
+    // R19: a swap inside a program session keeps the same set scheme.
+    // Percent schemes recompute weights only for same-equipment substitutes
+    // (the outgoing item's training max is reused); reps are never silently
+    // re-prescribed for the substitute.
+    let working: { weightKg: number; reps: number }[] = [
+      { weightKg: workingKg, reps: 8 },
+    ];
+    if (
+      workout !== undefined &&
+      workout.programId &&
+      workout.programWeek !== undefined
+    ) {
+      try {
+        const program = await getProgram(workout.programId);
+        const day =
+          program?.weeks[workout.programWeek]?.days[
+            workout.programDayIndex ?? 0
+          ];
+        const item = day?.items.find((i) => i.exerciseId === exerciseId);
+        if (item) {
+          const prescribed = resolveProgramItem(item, {
+            suggestedWeightKg: sugg,
+          });
+          if (prescribed && prescribed.length > 0) {
+            working = prescribed;
+          } else if (item.scheme?.kind === "double") {
+            const history = (await getSetsForExercise(exerciseId)).filter(
+              (s) => s.completed,
+            );
+            const engine = doubleProgression({
+              lastSets: history,
+              band: {
+                minReps: item.scheme.minReps,
+                maxReps: item.scheme.maxReps,
+              },
+              primaryMuscle: ex.primaryMuscle,
+              units: settings.units,
+              now: nowTs,
+            });
+            working = Array.from({ length: item.scheme.sets }, () => ({
+              weightKg: engine.weightKg,
+              reps: engine.reps,
+            }));
+          }
+        }
+      } catch (err) {
+        console.error(err); // scheme lookup is best-effort
+      }
+    }
+    for (const r of working) {
+      rows.push({
+        id: uuid(),
+        workoutId,
+        exerciseId,
+        order: order++,
+        weightKg: r.weightKg,
+        reps: r.reps,
+        completed: false,
+        createdAt: nowTs,
+      });
+    }
     for (const r of rows) await upsertSet(r);
     for (const r of rows) setsById.set(r.id, r);
     const existing = groupsByEx.get(exerciseId);

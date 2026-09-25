@@ -19,6 +19,7 @@ import type {
   MuscleGroup,
 } from "../lib/types.ts";
 import { go, h, toast } from "../lib/ui.ts";
+import { searchExercises } from "../lib/search.ts";
 
 function exerciseForm(existing?: Exercise, onSaved?: () => void): HTMLElement {
   const now = Date.now();
@@ -59,6 +60,12 @@ function exerciseForm(existing?: Exercise, onSaved?: () => void): HTMLElement {
     rows: "4",
   }) as HTMLTextAreaElement;
   instr.value = existing?.instructions.join("\n") ?? "";
+  const aliases = h("input", {
+    type: "text",
+    value: existing?.aliases?.join(", ") ?? "",
+    "aria-label": "Alternative names, comma separated",
+    placeholder: "e.g. cable pushdown, pushdown",
+  }) as HTMLInputElement;
   const form = h(
     "form",
     { class: "card" },
@@ -72,6 +79,7 @@ function exerciseForm(existing?: Exercise, onSaved?: () => void): HTMLElement {
     ),
     h("label", {}, "Difficulty", diff),
     h("label", {}, "Instructions (one per line)", instr),
+    h("label", {}, "Also search by (comma separated)", aliases),
     h(
       "div",
       { class: "row" },
@@ -94,6 +102,10 @@ function exerciseForm(existing?: Exercise, onSaved?: () => void): HTMLElement {
       difficulty: diff.value as Difficulty,
       instructions: instr.value
         .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      aliases: aliases.value
+        .split(",")
         .map((s) => s.trim())
         .filter(Boolean),
       tips: existing?.tips,
@@ -205,11 +217,10 @@ export async function renderExercises(
   const list = h("div", {});
   const creator = h("div", {});
   async function draw(): Promise<void> {
-    const needle = q.value.trim().toLowerCase();
     const allEx = await listExercises(false);
-    const shown = allEx.filter(
+    const matched = searchExercises(allEx, q.value);
+    const shown = matched.filter(
       (e) =>
-        (!needle || e.name.toLowerCase().includes(needle)) &&
         (!muscleF.value ||
           e.primaryMuscle === muscleF.value ||
           e.secondaryMuscles.includes(muscleF.value as MuscleGroup)) &&

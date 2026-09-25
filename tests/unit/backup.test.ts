@@ -1,6 +1,10 @@
 /** Backup serialization vectors: parse validation + CSV shape. */
 import { describe, expect, it } from "vitest";
-import { parseBackup, setsToCsv } from "../../src/lib/backup.ts";
+import {
+  parseBackup,
+  setsToCsv,
+  validateRestore,
+} from "../../src/lib/backup.ts";
 
 describe("backup", () => {
   it("rejects non-backup files", () => {
@@ -51,5 +55,18 @@ describe("backup", () => {
     expect(lines[1]).toContain("60,8");
     expect(lines[1]).toMatch(/,0$/);
     expect(lines[2]).toMatch(/,1$/);
+  });
+
+  it("validates programs rows by minimal shape", () => {
+    const { valid, invalid } = validateRestore({
+      programs: [
+        { id: "p1", name: "5/3/1", weeks: [] },
+        { id: "p2", name: "", weeks: [] },
+        { id: "p3", name: "no weeks" },
+      ],
+    });
+    expect(valid.programs).toHaveLength(1);
+    expect(valid.programs?.[0]?.id).toBe("p1");
+    expect(invalid.programs).toBe(2);
   });
 });

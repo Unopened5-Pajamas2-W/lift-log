@@ -120,6 +120,7 @@ const ROW_VALIDATORS: Record<
     isFiniteNumber(r.order) &&
     isFiniteNumber(r.createdAt),
   templates: (r) => isNonEmptyString(r.name) && Array.isArray(r.items),
+  programs: (r) => isNonEmptyString(r.name) && Array.isArray(r.weeks),
   settings: (r) => r.id === "app",
   meta: () => true,
 };

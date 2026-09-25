@@ -6,6 +6,20 @@ Local-first, FitBod-lite weight-lifting tracker. No accounts, no backend, no ana
 
 Spec: `copilot_temp/spec-ios-workout-pwa-20260916.md`.
 
+## Stack
+
+- Vite 6 + TypeScript 5 (`strict`), vanilla SPA (hash router)
+- Storage: IndexedDB via [`idb`](https://github.com/jakearchibald/idb) (typed, sole runtime dep) + `src/lib/store.ts`
+- Charts: [`uplot`](https://github.com/leeoniya/uPlot) (bundled, offline-safe; `src/components/trendChart.ts` is the only importer)
+- PWA: service worker generated at build time by [`vite-plugin-pwa`](https://vite-pwa-org.netlify.app/)
+  (Workbox precache + offline navigation fallback); update checks are
+  manual-only (Settings → Check for updates) and applying an update is
+  deferred until no workout is active (`src/sw-register.ts`)
+- Pure logic: `metrics.ts` (Epley e1RM, volume, PRs), `recovery.ts` (6-day decay map),
+  `suggest.ts` (seeded next-workout + overload prefill), `units.ts`, `timer.ts`, `backup.ts`,
+  `analytics.ts` (per-exercise session series, rep-max ladder, muscle split, week streaks)
+- Dev-only: `vitest`, `eslint`, `prettier`, `vite-plugin-pwa` (never shipped)
+
 ## Dependencies policy (read carefully)
 
 1. **Production npm runtime dependencies are fine — use them.** Prefer a great pre-existing package over hand-rolling your own version. Do not reinvent the wheel (no custom IndexedDB wrappers, routers, date utils, etc. when a well-maintained OSS package does it better).
@@ -13,7 +27,7 @@ Spec: `copilot_temp/spec-ios-workout-pwa-20260916.md`.
 3. **Bundled deps are the mechanism.** Runtime deps must work fully vendored/bundled by Vite so the app stays installable and offline-capable from any static HTTPS host. If a package needs a CDN or remote fetch to function, do not use it.
 4. **Dev dependencies are unrestricted** (test, lint, build tooling never ships).
 
-Note: history (`README.md`, `vite.config.ts`) says "zero runtime deps" — that was the old rule and is superseded by this section. Leave existing hand-rolled code alone unless touching it; use packages for new work.
+Note: history (`vite.config.ts`) says "zero runtime deps" — that was the old rule and is superseded by this section. Leave existing hand-rolled code alone unless touching it; use packages for new work.
 
 ## Target device (read carefully)
 
@@ -36,7 +50,25 @@ npm run preview    # serve dist/ (use --https for PWA install testing)
 npm run lint       # eslint src tests scripts
 ```
 
-Deploy: copy `dist/` to any HTTPS static host (GitHub Pages workflow included). Install: Safari → Share → Add to Home Screen.
+Deploy: copy `dist/` to any HTTPS static host (GitHub Pages workflow included).
+
+## Install on iPhone
+
+1. Deploy `dist/` to any HTTPS static host (GitHub Pages workflow included).
+2. Open the URL in Safari → Share → **Add to Home Screen** → Add.
+3. Launch Lift Log from the Home Screen (fullscreen, offline-capable).
+4. In-app help lives in Settings → Install on iPhone.
+
+## Backup
+
+Settings → Export JSON (full dump) / Export CSV (per-set rows) / Import JSON
+(preview counts + confirm, UUID-dedupe merge). Export reminder appears every 5th workout.
+
+## Credits
+
+- Recovery heatmap figure art: path data vendored from
+  [`react-native-body-highlighter`](https://github.com/HichamELBSI/react-native-body-highlighter)
+  (MIT) via `scripts/vendor-body-map.mjs`; see `THIRD_PARTY_NOTICES.md`.
 
 ## Verification
 

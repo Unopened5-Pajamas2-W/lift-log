@@ -11,22 +11,23 @@ import { getActiveWorkout, loadSettings, saveSettings } from "./lib/store.ts";
 import { go, h } from "./lib/ui.ts";
 import { tabIcon, type TabIconName } from "./components/tabIcons.ts";
 
-const PRIMARY_TABS = [
+const TABS = [
   { path: "/today", label: "Today", icon: "today" },
   { path: "/workout", label: "Workout", icon: "workout" },
-  { path: "/programs", label: "Plans", icon: "programs" },
+  { path: "/programs", label: "Programs", icon: "programs" },
   { path: "/exercises", label: "Moves", icon: "moves" },
   { path: "/history", label: "History", icon: "history" },
   { path: "/progress", label: "Progress", icon: "progress" },
+  { path: "/settings", label: "Settings", icon: "settings" },
 ] as const satisfies readonly { path: string; label: string; icon: TabIconName }[];
 
 function tabbar(current: string): HTMLElement {
   const nav = h("nav", {
     class: "tabbar",
     "aria-label": "Primary",
-    style: `--tab-count:${PRIMARY_TABS.length}`,
+    style: `--tab-count:${TABS.length}`,
   });
-  for (const t of PRIMARY_TABS) {
+  for (const t of TABS) {
     const active =
       current === t.path || (t.path !== "/today" && current.startsWith(t.path));
     const iconWrap = h("span", { class: "tab-icon", "aria-hidden": "true" });
@@ -38,27 +39,11 @@ function tabbar(current: string): HTMLElement {
         ...(active ? { "aria-current": "page" } : {}),
       },
       iconWrap,
-      h("span", { class: "tab-label" }, t.label),
+      h("span", {}, t.label),
     );
     nav.appendChild(a);
   }
   return nav;
-}
-
-function settingsAction(path: string): HTMLElement {
-  const active = path === "/settings";
-  const iconWrap = h("span", { class: "topbar-action-icon", "aria-hidden": "true" });
-  iconWrap.appendChild(tabIcon("settings"));
-  return h(
-    "a",
-    {
-      class: "topbar-action",
-      href: "#/settings",
-      "aria-label": "Settings",
-      ...(active ? { "aria-current": "page" } : {}),
-    },
-    iconWrap,
-  );
 }
 
 function disclaimerGate(onAccept: () => void): HTMLElement {
@@ -110,7 +95,6 @@ export async function renderApp(shell: HTMLElement): Promise<void> {
     "header",
     { class: "topbar" },
     h("h1", {}, `Lift Log · ${titles(path)}`),
-    settingsAction(path),
   );
   const view = h("main", { id: "view" });
   shell.append(head, view, tabbar(path.split("/").slice(0, 2).join("/")));
