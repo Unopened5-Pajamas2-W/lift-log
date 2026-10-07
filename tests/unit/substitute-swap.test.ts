@@ -285,8 +285,8 @@ describe("swap: keep-done / swap-rest", () => {
     await vi.waitFor(async () => {
       const all = await getSets(w.id);
       const subSets = all.filter((s) => s.exerciseId === shouldersEx.id);
-      expect(subSets.length).toBe(3); // 8×60% + 3×85% + working
-      expect(subSets.filter((s) => s.isWarmup === true)).toHaveLength(2);
+      expect(subSets.length).toBe(5); // §10.4 ramp (4 rows) + working
+      expect(subSets.filter((s) => s.isWarmup === true)).toHaveLength(4);
     });
     expect(confirmCalls).toBe(1);
   });

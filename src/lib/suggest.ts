@@ -52,18 +52,36 @@ export interface SuggestedItem {
 export const MAX_SESSIONS_FOR_BASELINE = 3;
 /** Never prescribe more than the baseline when history is this stale. */
 export const STALE_DAYS = 21;
-/** Warmup ramp prepended to the first exercise per primary muscle. */
-export const WARMUP_SETS: readonly { reps: number; pct: number }[] = [
-  { reps: 8, pct: 0.6 },
-  { reps: 3, pct: 0.85 },
-];
 
-/** Warmup rows for a working weight (8×60% + 3×85%), flagged warmup. */
-export function buildWarmupSets(
+/** §10.4 ascending warm-up ramp, keyed to the working set's rep count
+ *  (deterministic picks inside the doc's ranges): ≤6-rep working sets ramp
+ *  8@40% → 4@60% → 2@80% → 1@90%; ≥7-rep sets ramp 5@40% → 4@60% → 2@80% →
+ *  1@85%. 1–2-min rests between ramp rows (rest-timer default applies). */
+const PYR_RAMP: Record<"light" | "heavy", readonly { reps: number; pct: number }[]> = {
+  light: [
+    { reps: 8, pct: 0.4 },
+    { reps: 4, pct: 0.6 },
+    { reps: 2, pct: 0.8 },
+    { reps: 1, pct: 0.9 },
+  ],
+  heavy: [
+    { reps: 5, pct: 0.4 },
+    { reps: 4, pct: 0.6 },
+    { reps: 2, pct: 0.8 },
+    { reps: 1, pct: 0.85 },
+  ],
+};
+
+/** Warmup ramp rows for a working weight, flagged warmup. Empty for
+ *  bodyweight-only work (weightKg ≤ 0) — nothing to ramp. */
+export function buildWarmupRamp(
   workingKg: number,
+  workingReps: number,
 ): { weightKg: number; reps: number; isWarmup: true }[] {
-  return WARMUP_SETS.map((w) => ({
-    weightKg: round4(workingKg * w.pct),
+  if (workingKg <= 0) return [];
+  const ladder = PYR_RAMP[workingReps <= 6 ? "light" : "heavy"];
+  return ladder.map((w) => ({
+    weightKg: roundQuarterKg(workingKg * w.pct),
     reps: w.reps,
     isWarmup: true as const,
   }));
@@ -85,7 +103,7 @@ export function recoveryBandPoints(recoveryPct: number): number {
 }
 
 /** Quarter-kg rounding (matches the rest of the codebase). */
-function round4(v: number): number {
+function roundQuarterKg(v: number): number {
   return Math.round(v * 4) / 4;
 }
 
@@ -157,13 +175,13 @@ export function suggestNextWeight(
   const sessions = groupWorkingSessions(lastSets);
   const latest = sessions[0];
   if (!latest) return { weightKg: 20, reps: 8 };
-  const baseline = round4(
+  const baseline = roundQuarterKg(
     sessions.reduce((sum, s) => sum + s.top, 0) / sessions.length,
   );
   const target = latest.target;
   if (latest.worstShortfall <= -2) {
     // Struggle (spec §7: −2 or worse) → deload 5% off the recent baseline.
-    return { weightKg: round4(baseline * 0.95), reps: target };
+    return { weightKg: roundQuarterKg(baseline * 0.95), reps: target };
   }
   if (!latest.allHit) return { weightKg: baseline, reps: target };
   if (
@@ -174,7 +192,7 @@ export function suggestNextWeight(
     return { weightKg: baseline, reps: target };
   }
   const inc = overloadIncrementKg(LOWER_BODY.has(primaryMuscle), units);
-  return { weightKg: round4(baseline + inc), reps: target };
+  return { weightKg: roundQuarterKg(baseline + inc), reps: target };
 }
 
 const FOCUS_MUSCLES: Record<Exclude<Focus, "custom">, MuscleGroup[] | null> = {
@@ -279,13 +297,16 @@ export function generateWorkout(input: SuggestInput): {
     let sets: SuggestedItem["sets"] = working;
     if (!warmedMuscles.has(e.primaryMuscle)) {
       warmedMuscles.add(e.primaryMuscle);
-      sets = [...buildWarmupSets(suggestion.weightKg), ...working];
+      sets = [
+        ...buildWarmupRamp(suggestion.weightKg, suggestion.reps),
+        ...working,
+      ];
     }
     const sessions = groupWorkingSessions(last);
     const latestTop = sessions[0]?.top;
     const history =
       sessions.length > 1
-        ? `last ${sessions.length}-session avg ${round4(sessions.reduce((sum, s) => sum + s.top, 0) / sessions.length)} kg → ${suggestion.weightKg} kg`
+        ? `last ${sessions.length}-session avg ${roundQuarterKg(sessions.reduce((sum, s) => sum + s.top, 0) / sessions.length)} kg → ${suggestion.weightKg} kg`
         : `last ${latestTop ?? suggestion.weightKg} kg → ${suggestion.weightKg} kg`;
     items.push({
       exerciseId: e.id,

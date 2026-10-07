@@ -242,24 +242,27 @@ describe("R3: suggestion prefill chain (sugg ?? last ?? 20)", () => {
     const addBtn = sel.closest(".card")?.querySelector("button");
     if (!(addBtn instanceof HTMLElement)) throw new Error("add button missing");
     addBtn.click();
-    // Wait for the store writes: unseen muscle → 2 warmups + 1 working set
-    // join the 1 existing set (the select <option> already contains the name,
-    // so only the committed sets prove the card build finished).
+    // Wait for the store writes: unseen muscle → the §10.4 warmup ramp
+    // (4 rows: 5@40% / 4@60% / 2@80% / 1@85% off the 20 kg default) + 1
+    // working set join the 1 existing set (the select <option> already
+    // contains the name, so only the committed sets prove the card build
+    // finished).
     await vi.waitFor(async () => {
-      expect((await getSets(w.id)).length).toBe(4);
+      expect((await getSets(w.id)).length).toBe(6);
     });
     const card = exerciseCard(root, fresh.name);
     const rows = card.querySelectorAll("tbody tr.set-row");
-    expect(rows.length).toBe(3);
-    // Warmup ramp first: 12×8 + 17×3 off the 20 kg default working weight.
-    const wu1 = rows[0];
-    const wu2 = rows[1];
-    const working = rows[2];
-    if (!wu1 || !wu2 || !working) throw new Error("rows missing");
-    expect(wu1.getAttribute("data-warmup")).toBe("true");
-    expect(weightInput(wu1).value).toBe(String(displayWeight(12, "lb")));
-    expect(wu2.getAttribute("data-warmup")).toBe("true");
-    expect(weightInput(wu2).value).toBe(String(displayWeight(17, "lb")));
+    expect(rows.length).toBe(5);
+    // Warmup ramp first: 5@8 / 4@12 / 2@16 / 1@17 kg off the 20 kg default.
+    const wuRows = [...rows].slice(0, 4);
+    const working = rows[4];
+    if (!working || wuRows.some((r) => !r)) throw new Error("rows missing");
+    for (const r of wuRows)
+      expect(r.getAttribute("data-warmup")).toBe("true");
+    expect(weightInput(wuRows[0]!).value).toBe(String(displayWeight(8, "lb")));
+    expect(weightInput(wuRows[1]!).value).toBe(String(displayWeight(12, "lb")));
+    expect(weightInput(wuRows[2]!).value).toBe(String(displayWeight(16, "lb")));
+    expect(weightInput(wuRows[3]!).value).toBe(String(displayWeight(17, "lb")));
     expect(working.getAttribute("data-warmup")).toBeNull();
     expect(weightInput(working).value).toBe(String(displayWeight(20, "lb")));
     const reps = working.querySelector('[data-focus-key="reps"]');

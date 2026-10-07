@@ -1,12 +1,10 @@
-/** Today: recovery summary, generate workout, start/resume, backup nudge. */
+/** Today: recovery summary, program session, weekly check-in, generate, resume. */
 import { renderRecoveryMap } from "../components/recoveryMap.ts";
 import { ALL_EQUIPMENT } from "../data/muscles.ts";
 import type { MuscleGroup } from "../lib/types.ts";
 import {
   getActiveWorkout,
-  getExercise,
   getProgram,
-  getSetsForExercise,
   listWorkouts,
   loadSettings,
   saveSettings,
@@ -14,10 +12,15 @@ import {
   startWorkout,
 } from "../lib/store.ts";
 import { generateWorkout } from "../lib/suggest.ts";
-import { doubleProgression } from "../lib/progression.ts";
 import { listExercises } from "../lib/store.ts";
 import { recoveryMap } from "../lib/recovery.ts";
-import { nextProgramSession, resolveProgramItem } from "../lib/programs.ts";
+import {
+  describePrescription,
+  expandProgramDay,
+  nextProgramSession,
+  type ExpandContext,
+} from "../lib/programs.ts";
+import { buildExpandContext } from "../lib/sessionContext.ts";
 import { randomSeed } from "../lib/rng.ts";
 import { go, h, toast } from "../lib/ui.ts";
 
@@ -122,22 +125,50 @@ export async function renderToday(): Promise<HTMLElement> {
       const slot = nextProgramSession(program, completed);
       const day = program.weeks[slot.weekIndex]?.days[slot.dayIndex];
       if (day) {
-        const names = await Promise.all(
-          day.items.map(async (it) => {
-            const ex = await getExercise(it.exerciseId).catch(() => undefined);
-            return ex?.name ?? "Missing exercise";
-          }),
-        );
-        const label = slot.cycleComplete
-          ? `Cycle ${slot.cycleCount + 1} begins — Week 1 Day 1`
-          : `Week ${slot.weekIndex + 1} · Day ${slot.dayIndex + 1}`;
+        const now = Date.now();
+        // One autoregulated expansion drives both the preview and the
+        // prefill: phase transforms (§8.3/§8.5), engine suggestions (§6.3),
+        // e1RM-anchored percent gauges (§6.5), RPE corrections (§2.3).
+        const context: ExpandContext = {
+          ...(await buildExpandContext({
+            units: settings.units,
+            exerciseById: byId,
+            exerciseIds: day.items.map((it) => it.exerciseId),
+            now,
+          })),
+          phase: program.weeks[slot.weekIndex]?.phase,
+          deloadActive: (settings.deloadUntil ?? 0) > now,
+        };
+        const expanded = expandProgramDay(day, context);
+        const resolved = new Map(expanded.map((e) => [e.exerciseId, e]));
         root.appendChild(
           h(
             "div",
             { class: "card" },
             h("strong", {}, program.name),
-            h("p", { class: "muted" }, `${label} — ${day.name}`),
-            h("ul", {}, ...names.map((n) => h("li", {}, n))),
+            h(
+              "p",
+              { class: "muted" },
+              `${
+                slot.cycleComplete
+                  ? `Cycle ${slot.cycleCount + 1} begins — Week 1 Day 1`
+                  : `Week ${slot.weekIndex + 1} · Day ${slot.dayIndex + 1}`
+              } — ${day.name}${
+                context.deloadActive ? " · deload: sets −40%" : ""
+              }`,
+            ),
+            h(
+              "ul",
+              {},
+              ...day.items.map((it) => {
+                const e = resolved.get(it.exerciseId);
+                const name = byId.get(it.exerciseId)?.name;
+                if (!e || !name)
+                  return h("li", { class: "muted" }, `${name ?? it.exerciseId} — skipped (unresolvable)`);
+                const line = describePrescription(e, settings.units);
+                return h("li", {}, line ? `${name} — ${line}` : name);
+              }),
+            ),
             h(
               "button",
               {
@@ -146,69 +177,15 @@ export async function renderToday(): Promise<HTMLElement> {
                   const btn = e.currentTarget as HTMLButtonElement | null;
                   btn?.setAttribute("disabled", "true");
                   try {
-                    // Prefill prescribed sets; missing exercises become
-                    // skippable muted rows in the workout view (R10).
-                    const items: {
-                      exerciseId: string;
-                      sets: { weightKg: number; reps: number }[];
-                    }[] = [];
-                    for (const it of day.items) {
-                      const ex = await getExercise(it.exerciseId).catch(
-                        () => undefined,
-                      );
-                      if (!ex) continue;
-                      const history = (await getSetsForExercise(it.exerciseId))
-                        .filter((s) => s.completed);
-                      if (
-                        it.scheme?.kind === "sets-reps" ||
-                        it.scheme?.kind === "percent"
-                      ) {
-                        // Prescribed schemes win — exact prefill, no engine.
-                        const prescribed = resolveProgramItem(it, {});
-                        if (prescribed && prescribed.length > 0) {
-                          items.push({
-                            exerciseId: it.exerciseId,
-                            sets: prescribed,
-                          });
-                          continue;
-                        }
-                      }
-                      // Engine path: double progression off history. Double
-                      // schemes prescribe the set count; scheme-less items
-                      // prefill one working set (the workout view adds more).
-                      const engine = doubleProgression({
-                        lastSets: history,
-                        band:
-                          it.scheme?.kind === "double"
-                            ? {
-                                minReps: it.scheme.minReps,
-                                maxReps: it.scheme.maxReps,
-                              }
-                            : undefined,
-                        primaryMuscle: ex.primaryMuscle,
-                        units: settings.units,
-                        now: Date.now(),
-                      });
-                      items.push({
-                        exerciseId: it.exerciseId,
-                        sets:
-                          it.scheme?.kind === "double"
-                            ? Array.from(
-                                { length: it.scheme.sets },
-                                () => ({
-                                  weightKg: engine.weightKg,
-                                  reps: engine.reps,
-                                }),
-                              )
-                            : [{ weightKg: engine.weightKg, reps: engine.reps }],
-                      });
-                    }
                     const w = await startWorkout({
                       title: `${program.name} — ${day.name}`,
                       programId: program.id,
                       programWeek: slot.weekIndex,
                       programDayIndex: slot.dayIndex,
-                      items,
+                      items: expanded.map((e) => ({
+                        exerciseId: e.exerciseId,
+                        sets: e.sets,
+                      })),
                     });
                     go(`/workout/${w.id}`);
                   } catch (err) {
@@ -224,6 +201,80 @@ export async function renderToday(): Promise<HTMLElement> {
         );
       }
     }
+  }
+
+  // --- §8.3 weekly self-check: 2+ yes → deload week (sets −40%, loads kept) ---
+  const nowTs = Date.now();
+  if (!settings.lastCheckIn || nowTs - settings.lastCheckIn.at > 7 * 86_400_000) {
+    const questions = [
+      "Dreading the gym",
+      "Sleep worse than usual",
+      "Loads or reps decreasing",
+      "Life stress worse than usual",
+      "Aches worse than usual",
+    ];
+    const boxes: HTMLInputElement[] = [];
+    const list = h("ul", {});
+    for (const q of questions) {
+      const box = h("input", { type: "checkbox" }) as HTMLInputElement;
+      boxes.push(box);
+      list.appendChild(h("li", {}, h("label", {}, box, " ", q)));
+    }
+    root.appendChild(
+      h(
+        "div",
+        { class: "card" },
+        h("strong", {}, "Weekly check-in"),
+        h(
+          "p",
+          { class: "muted" },
+          "Rate the past week. 2+ yes → run a deload week.",
+        ),
+        list,
+        h(
+          "button",
+          {
+            onclick: async (e) => {
+              const btn = e.currentTarget as HTMLButtonElement | null;
+              btn?.setAttribute("disabled", "true");
+              const yesCount = boxes.filter((b) => b.checked).length;
+              try {
+                await saveSettings({
+                  lastCheckIn: { at: nowTs, yesCount },
+                  ...(yesCount >= 2
+                    ? { deloadUntil: nowTs + 7 * 86_400_000 }
+                    : {}),
+                });
+                toast(
+                  yesCount >= 2
+                    ? "Deload week started — sets cut ~40%, loads kept."
+                    : "Check-in saved — keep going.",
+                );
+                go("/today");
+              } catch (err) {
+                console.error(err);
+                btn?.removeAttribute("disabled");
+                toast("Couldn't save — storage unavailable. Retry.");
+              }
+            },
+          },
+          "Save check-in",
+        ),
+      ),
+    );
+  } else if ((settings.deloadUntil ?? 0) > nowTs) {
+    root.appendChild(
+      h(
+        "div",
+        { class: "card" },
+        h("strong", {}, "Deload week active"),
+        h(
+          "p",
+          { class: "muted" },
+          "Scheduled sessions run with ~40% fewer sets; loads, RPE and frequency stay.",
+        ),
+      ),
+    );
   }
 
   const active = await getActiveWorkout();

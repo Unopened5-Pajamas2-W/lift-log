@@ -1,24 +1,31 @@
 /**
- * Double progression engine (v2 R12/R14). Pure — no IO, no Date.now default
- * passed implicitly; callers own time so vectors stay deterministic.
+ * Autoregulated double progression engine (doc §6.3, §2.3). Pure — no IO,
+ * no implicit Date.now; callers own time so vectors stay deterministic.
  *
- * Band semantics: reps band [floor, ceil]. Reps first, then weight:
- *  - latest session hit the band ceiling on all sets → +one overload increment,
- *    reps reset to floor;
- *  - all sets inside the band → hold weight, reps = min(lastBest + 1, ceil);
- *  - any set below floor → hold weight, reps stay at floor (the RPE rules and
- *    the existing −2 deload are the failure valves; this engine never reduces).
+ * Semantics: reps band [floor, ceil], driven by the FIRST working set of the
+ * latest session (PYR §L3: remaining sets ride the same load set by set 1):
+ *  - set 1 at band top with RPE ≤ rpeCeiling (default 8 = 2 RIR) → +one
+ *    increment, reps reset to floor (an easy RPE ≤ 7 lands on the same
+ *    single increment — accelerate, never a double jump);
+ *  - set 1 inside the band → hold weight, reps = min(set1 + 1, ceil);
+ *  - set 1 below the floor by k reps → load × (1 − 4%·k) (§2.3 miss
+ *    correction: 2 RIR off ≈ 8%);
+ *  - every set at the floor with RPE ≥ 9 (≤1 RIR grind) → one step back (−5%);
+ *  - any later set below the floor → hold weight at floor reps (no
+ *    correction — the load stands, the lifter retries).
  *
- * RPE adjustments (warmups and unlogged sets excluded):
- *  - top-set RPE ≥ 9.5 → hold weight (block the increment even at band top);
- *  - all sets ≤ 7.0 at band top → the increment fires (same single increment
- *    the reps rule would give — RPE accelerates, never exceeds);
- *  - RPE ≥ 9.5 two consecutive sessions on the lift → 5% deload off the last
- *    top weight (same math as the −2-reps deload; idempotent, never stacks).
+ * RPE valves (warmups and unlogged sets excluded; unchanged from R14):
+ *  - top-set RPE ≥ 9.5 → hold weight (absolute brake, even a high ceiling);
+ *  - top-set RPE ≥ 9.5 two consecutive sessions → 5% deload off the last top
+ *    weight (idempotent with the other step-backs, never stacks).
+ *
+ * This engine never reduces below what the rules above state; percent
+ * prescriptions never pass through here.
  */
 import type { Units, WorkoutSet, MuscleGroup } from "./types.ts";
 import { LOWER_BODY } from "../data/muscles.ts";
-import { overloadIncrementKg } from "./units.ts";
+import { overloadIncrementKg, round4 } from "./units.ts";
+import { groupBySession as groupSessions, lastTopRpe } from "./metrics.ts";
 
 export interface RepsBand {
   /** Band floor (e.g. 8). */
@@ -30,111 +37,104 @@ export interface RepsBand {
 export interface DoubleProgressionInput {
   /** Completed working sets for ONE exercise, latest sessions grouped by
    *  workoutId (same shape `suggestNextWeight` accepts). Warmups excluded. */
-  lastSets: Pick<
+  lastSets: (Pick<
     WorkoutSet,
-    "weightKg" | "reps" | "completed" | "createdAt" | "workoutId" | "isWarmup"
-  >[];
+    "weightKg" | "reps" | "completed" | "createdAt" | "workoutId" | "isWarmup" | "rpe"
+  > & { order?: number })[];
   band: RepsBand;
   primaryMuscle: MuscleGroup;
   units: Units;
   /** Session grouping time reference (tests pass a fixed value). */
   now: number;
-}
-
-/** Round to 4 decimals (percent/deload math stability). */
-export function round4(n: number): number {
-  return Math.round(n * 10000) / 10000;
+  /** RPE ceiling for advancing (§6.3 RIR ceiling). Default 8. */
+  rpeCeiling?: number;
 }
 
 /**
- * Double-progression prefill for the next session. Pure; `no history` →
+ * Double-progression prefill for the next session. Pure; no history →
  * { 20 kg, band floor } (generator default preserved).
  */
 export function doubleProgression(
   input: Omit<DoubleProgressionInput, "band"> & { band?: RepsBand },
 ): { weightKg: number; reps: number } {
   const band = input.band ?? { minReps: 8, maxReps: 12 };
-  const sessions = groupBySession(input.lastSets, input.now);
+  const ceiling = input.rpeCeiling ?? 8;
+  const sessions = groupSessions(input.lastSets);
   const latest = sessions[0];
   if (!latest) return { weightKg: 20, reps: band.minReps };
   const top = Math.max(...latest.sets.map((s) => s.weightKg));
-  const allAtCeil = latest.sets.every((s) => s.reps >= band.maxReps);
-  const allInBand = latest.sets.every(
-    (s) => s.reps >= band.minReps && s.reps <= band.maxReps,
-  );
-  const bestReps = Math.max(...latest.sets.map((s) => s.reps));
   const inc = overloadIncrementKg(
     LOWER_BODY.has(input.primaryMuscle),
     input.units,
   );
 
-  const rpeAdjust = rpeAdjustment(
-    latest.sets as unknown as Pick<WorkoutSet, "rpe" | "reps" | "weightKg">[],
-    band,
-    input.lastSets,
-  );
-  let weightKg = top;
-  let reps: number;
-  if (allAtCeil && rpeAdjust !== "hold") {
-    // Band ceiling cleared → one increment, reps back to floor. RPE ≤ 7
-    // (rpeAdjust "accelerate") and plain reps both land here — never two.
-    weightKg = round4(top + inc);
-    reps = band.minReps;
-  } else if (allInBand) {
-    weightKg = top;
-    reps = Math.min(bestReps + 1, band.maxReps);
-  } else {
-    // Missed the band floor: hold at floor. No reduction in this engine.
-    weightKg = top;
-    reps = band.minReps;
-  }
+  const rpeAdjust = rpeAdjustment(latest.sets, band, input.lastSets);
   if (rpeAdjust === "deload") {
     // Two consecutive ≥9.5 top sets → 5% off the latest top weight.
-    weightKg = round4(top * 0.95);
-    reps = band.minReps;
+    return { weightKg: round4(top * 0.95), reps: band.minReps };
   }
-  return { weightKg, reps };
+
+  const set1 = firstWorkingSet(latest.sets);
+  const missK = Math.max(0, band.minReps - set1.reps);
+  if (missK > 0) {
+    // Set-1 miss → ~4% per rep short (§2.3; 2 RIR off ≈ 8%).
+    return { weightKg: round4(top * (1 - 0.04 * missK)), reps: band.minReps };
+  }
+
+  const grinding =
+    latest.sets.length > 0 &&
+    latest.sets.every(
+      (s) =>
+        s.reps === band.minReps &&
+        typeof s.rpe === "number" &&
+        s.rpe >= 9,
+    );
+  if (grinding) {
+    // All sets grinding at ≤1 RIR at band bottom → one step back (~4–6%).
+    return { weightKg: round4(top * 0.95), reps: band.minReps };
+  }
+
+  const set1Rpe = set1.rpe;
+  const withinCeiling = set1Rpe == null || set1Rpe <= ceiling;
+  if (set1.reps >= band.maxReps && withinCeiling && rpeAdjust !== "hold") {
+    // Band top cleared inside the RIR ceiling → one increment, reps to floor.
+    return { weightKg: round4(top + inc), reps: band.minReps };
+  }
+
+  const anyBelowFloor = latest.sets.some((s) => s.reps < band.minReps);
+  const reps = anyBelowFloor
+    ? band.minReps
+    : Math.min(set1.reps + 1, band.maxReps);
+  return { weightKg: top, reps };
 }
 
+/** One session's set shape: working rows with optional order and RPE. */
 type HistSet = Pick<
   WorkoutSet,
-  "weightKg" | "reps" | "completed" | "createdAt" | "workoutId" | "isWarmup"
-> & { rpe?: number };
+  "weightKg" | "reps" | "completed" | "createdAt" | "workoutId" | "isWarmup" | "rpe"
+> & { order?: number };
 
-function groupBySession(
-  sets: HistSet[],
-  _now: number,
-): { time: number; sets: HistSet[] }[] {
-  const bySession = new Map<string, { time: number; sets: HistSet[] }>();
-  for (const s of sets) {
-    if (!s.completed || s.isWarmup === true) continue;
-    const key = s.workoutId ?? "__single__";
-    let g = bySession.get(key);
-    if (!g) {
-      g = { time: 0, sets: [] };
-      bySession.set(key, g);
-    }
-    g.sets.push(s);
-    if (typeof s.createdAt === "number" && Number.isFinite(s.createdAt))
-      g.time = Math.max(g.time, s.createdAt);
-  }
-  return [...bySession.values()].sort((a, b) => b.time - a.time);
+/** First working set of a session: lowest `order` when every set has one,
+ *  else array order (legacy vectors carry no order). */
+function firstWorkingSet(sets: HistSet[]): HistSet {
+  if (!sets.every((s) => s.order != null)) return sets[0]!;
+  return sets.reduce((a, b) => (b.order! < a.order! ? b : a));
 }
 
 /**
  * RPE-driven adjustment (R14) for the next prefill. Warmups excluded by the
  * caller's grouping. Returns:
  *  - "hold": latest top set ≥ 9.5 (block the increment; percent schemes are
- *    never passed here — they stay exact);
+ *    never passed here — they stay gauge-driven);
  *  - "accelerate": all latest sets ≤ 7.0 with reps at band top;
  *  - "deload": ≥9.5 top set two consecutive sessions (same 5% math as the
- *    −2-reps deload; idempotent with it, never stacks);
+ *    grind step-back; idempotent with it, never stacks);
  *  - null: no RPE signal.
  */
 export function rpeAdjustment(
   latestSets: Pick<WorkoutSet, "rpe" | "reps" | "weightKg">[],
   band: RepsBand,
-  allLastSets?: DoubleProgressionInput["lastSets"],
+  allLastSets?: HistSet[],
 ): "hold" | "accelerate" | "deload" | null {
   const logged = latestSets.filter((s) => typeof s.rpe === "number");
   if (logged.length === 0) return null;
@@ -155,16 +155,8 @@ export function rpeAdjustment(
 }
 
 /** Top-set RPE of the second-newest session (for the two-session deload). */
-function previousSessionTopRpe(
-  allLastSets?: HistSet[],
-): number | undefined {
+function previousSessionTopRpe(allLastSets?: HistSet[]): number | undefined {
   if (!allLastSets) return undefined;
-  const sessions = groupBySession(allLastSets, Date.now());
-  const prev = sessions[1];
-  if (!prev) return undefined;
-  const topWeight = Math.max(...prev.sets.map((s) => s.weightKg));
-  const topRpes = prev.sets
-    .filter((s) => s.weightKg === topWeight && typeof s.rpe === "number")
-    .map((s) => s.rpe as number);
-  return topRpes.length > 0 ? Math.max(...topRpes) : undefined;
+  const prev = groupSessions(allLastSets)[1];
+  return prev ? lastTopRpe(prev.sets) : undefined;
 }

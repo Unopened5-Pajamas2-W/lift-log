@@ -1,10 +1,8 @@
 /** Programs: list, create/edit (weeks → days → items with schemes),
  *  duplicate, archive, delete, activate. Mobile-only layout, 44pt targets.
  *  The editor mutates a local Program copy in place and re-renders; Save
- *  persists. Week structure note: all weeks share the same day template —
- *  weekly progression lives in the schemes themselves (5/3/1 percentages
- *  change per week), so editing week 1's days defines the whole cycle.
- */
+ *  persists. Weeks are fully editable (label + §7.2 phase tag); the phase
+ *  drives session-prefill transforms (intro −25% volume, deload −40% sets). */
 import {
   deleteProgram,
   getProgram,
@@ -16,8 +14,20 @@ import {
   saveSettings,
   uuid,
 } from "../lib/store.ts";
-import { duplicateProgram, nextProgramSession } from "../lib/programs.ts";
-import type { Program, ProgramItem, Units } from "../lib/types.ts";
+import {
+  describePrescription,
+  duplicateProgram,
+  fractionalVolume,
+  nextProgramSession,
+  programChecks,
+  resolveProgramItem,
+} from "../lib/programs.ts";
+import type { ExpandContext } from "../lib/programs.ts";
+import type {
+  Program,
+  ProgramItem,
+  Units,
+} from "../lib/types.ts";
 import { displayWeight, toKg } from "../lib/units.ts";
 import { go, h, toast } from "../lib/ui.ts";
 
@@ -67,7 +77,7 @@ export async function renderPrograms(): Promise<HTMLElement> {
         h(
           "p",
           { class: "muted" },
-          "Create one (try PPL ×3) or activate the seeded 5/3/1 example to see scheduled sessions on Today.",
+          "Create one (try PPL ×3) or activate the seeded Strength Base example to see scheduled sessions on Today.",
         ),
       ),
     );
@@ -250,7 +260,36 @@ function numInput(
   return input;
 }
 
-/** Scheme editor for one item: segmented kind picker + per-kind fields. */
+/** RPE input (0.5 steps, meaningful range 5–10; blank = none). */
+function rpeInput(
+  label: string,
+  value: number | undefined,
+  onInput: (v: number | undefined) => void,
+): HTMLInputElement {
+  const input = h("input", {
+    type: "number",
+    inputmode: "decimal",
+    step: "0.5",
+    min: "5",
+    max: "10",
+    "aria-label": label,
+    value: value != null ? String(value) : "",
+  }) as HTMLInputElement;
+  input.addEventListener("input", () => {
+    const raw = input.value.trim();
+    if (raw === "") {
+      onInput(undefined);
+      return;
+    }
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 5 && n <= 10) onInput(n);
+  });
+  return input;
+}
+
+/** Scheme editor for one item: segmented kind picker + per-kind fields.
+ *  Prescriptions are RPE/RIR bands (doc §2.3); %1RM loads are a starting
+ *  gauge that self-corrects on logged RPE, never a rigid target. */
 function schemeEditor(
   item: ProgramItem,
   units: Units,
@@ -265,7 +304,7 @@ function schemeEditor(
   for (const opt of [
     { v: "none", label: "Auto" },
     { v: "sets-reps", label: "Sets×Reps" },
-    { v: "percent", label: "% max" },
+    { v: "percent", label: "% gauge" },
     { v: "double", label: "Reps band" },
   ]) {
     seg.appendChild(
@@ -285,11 +324,18 @@ function schemeEditor(
             } else if (opt.v === "percent") {
               item.scheme = {
                 kind: "percent",
-                sets: [{ pct: 0.65, reps: 5 }],
+                sets: [{ pct: 0.8, reps: 5 }],
+                rpe: { min: 6, max: 8 },
               };
               item.trainingMaxKg = item.trainingMaxKg ?? 100;
             } else {
-              item.scheme = { kind: "double", sets: 3, minReps: 8, maxReps: 12 };
+              item.scheme = {
+                kind: "double",
+                sets: 3,
+                minReps: 8,
+                maxReps: 12,
+                rpeCeiling: 8,
+              };
             }
             rerender();
           },
@@ -329,12 +375,49 @@ function schemeEditor(
         })),
       ),
       fixedWrap,
+      h(
+        "label",
+        {},
+        "Target RPE (optional)",
+        rpeInput("Target RPE", setsRepsScheme.rpe, (v) => {
+          if (item.scheme?.kind !== "sets-reps") return;
+          if (v === undefined) delete setsRepsScheme.rpe;
+          else setsRepsScheme.rpe = v;
+        }),
+      ),
     );
   } else if (s.kind === "percent") {
     const tm = kgInput("Training max (kg)", item.trainingMaxKg, units, (kg) => {
       item.trainingMaxKg = kg;
     });
     wrap.append(h("label", {}, "Training max", tm));
+    // Anchor picker: static training max, or the running e1RM (§7.2 back-offs).
+    const ofSeg = h(
+      "div",
+      { class: "segmented", role: "group", "aria-label": "Percent anchor" },
+    );
+    const of = s.of ?? "tm";
+    for (const opt of [
+      { v: "tm", label: "of training max" },
+      { v: "e1rm", label: "of e1RM" },
+    ]) {
+      ofSeg.appendChild(
+        h(
+          "button",
+          {
+            type: "button",
+            "aria-pressed": String(of === opt.v),
+            onclick: (e) => {
+              for (const b of ofSeg.querySelectorAll("button"))
+                b.setAttribute("aria-pressed", String(b === e.currentTarget));
+              if (item.scheme?.kind === "percent") item.scheme.of = opt.v as "tm" | "e1rm";
+            },
+          },
+          opt.label,
+        ),
+      );
+    }
+    wrap.appendChild(ofSeg);
     const listEl = h("div", {});
     const pctScheme = s;
     const renderSets = (): void => {
@@ -384,6 +467,24 @@ function schemeEditor(
       });
     };
     renderSets();
+    const rpeMin = rpeInput("RPE band min", s.rpe?.min, (v) => {
+      if (item.scheme?.kind !== "percent") return;
+      if (v === undefined) {
+        delete item.scheme.rpe;
+        rerender();
+        return;
+      }
+      item.scheme.rpe = { min: v, max: item.scheme.rpe?.max ?? v };
+    });
+    const rpeMax = rpeInput("RPE band max", s.rpe?.max, (v) => {
+      if (item.scheme?.kind !== "percent") return;
+      if (v === undefined) {
+        delete item.scheme.rpe;
+        rerender();
+        return;
+      }
+      item.scheme.rpe = { min: item.scheme.rpe?.min ?? v, max: v };
+    });
     wrap.append(
       listEl,
       h(
@@ -397,6 +498,17 @@ function schemeEditor(
           },
         },
         "+ Add prescribed set",
+      ),
+      h(
+        "div",
+        { class: "row" },
+        h("label", {}, "RPE band min", rpeMin),
+        h("label", {}, "RPE band max", rpeMax),
+      ),
+      h(
+        "p",
+        { class: "muted" },
+        "The band is the prescription; % weights are a starting gauge that self-corrects ~2% per 0.5 RPE off-target.",
       ),
     );
   } else {
@@ -415,9 +527,19 @@ function schemeEditor(
         })),
       ),
       h(
+        "label",
+        {},
+        "Advance RPE ceiling",
+        rpeInput("Advance RPE ceiling", s.rpeCeiling ?? 8, (v) => {
+          if (item.scheme?.kind !== "double") return;
+          if (v === undefined) delete item.scheme.rpeCeiling;
+          else item.scheme.rpeCeiling = v;
+        }),
+      ),
+      h(
         "p",
         { class: "muted" },
-        "Hit max reps on all sets → +weight and back to min reps.",
+        "First set hits max reps within the ceiling → +weight; misses correct ~4%/rep; grinding at ≤1 RIR steps back.",
       ),
     );
   }
@@ -497,20 +619,42 @@ export async function renderProgramEditor(
     })();
   }
 
-  // All weeks share week 1's day structure; per-week progression lives in
-  // the schemes (5/3/1 percentages change per week label).
+  // Weeks are first-class: tab row, per-week label + §7.2 phase picker, and
+  // per-week day tabs. The phase drives session-prefill transforms.
+  const weekTabRow = h("div", { class: "row" });
+  const weekHead = h("div", {});
   const dayTabRow = h("div", { class: "row" });
   const itemsHost = h("div", {});
+  const footerHost = h("div", {});
+  let currentWeekIdx = 0;
   let currentDayIdx = 0;
 
+  const PHASES: { v: "intro" | "volume" | "load" | "peak" | "deload"; label: string }[] = [
+    { v: "intro", label: "Intro" },
+    { v: "volume", label: "Volume" },
+    { v: "load", label: "Load" },
+    { v: "peak", label: "Peak" },
+    { v: "deload", label: "Deload" },
+  ];
+
   function renderItems(): void {
-    const week = program.weeks[0];
+    const week = program.weeks[currentWeekIdx];
     if (!week) return;
     const day = week.days[currentDayIdx];
     if (!day) return;
     itemsHost.replaceChildren();
+    // Plan-level resolved preview (no engine context — engine-dependent
+    // prescriptions resolve in sessions).
+    const previewCtx: ExpandContext = {
+      units,
+      exerciseById: exById,
+      phase: week.phase,
+    };
     day.items.forEach((item, i) => {
       const ex = exById.get(item.exerciseId);
+      const resolved = resolveProgramItem(item, previewCtx);
+      const preview =
+        ex && resolved && describePrescription(resolved, units);
       const row = h(
         "div",
         { class: "card program-item" },
@@ -530,6 +674,7 @@ export async function renderProgramEditor(
             "−",
           ),
         ),
+        preview ? h("p", { class: "muted" }, preview) : null,
         ex
           ? null
           : h(
@@ -571,10 +716,109 @@ export async function renderProgramEditor(
     );
   }
 
+  /** Per-week dose meter (§3.1 fractional counting) + soft guardrails. */
+  function renderFooter(): void {
+    footerHost.replaceChildren();
+    const rows = [...fractionalVolume(program, currentWeekIdx, exById).values()]
+      .filter((r) => r.fractional > 0)
+      .sort((a, b) => b.fractional - a.fractional);
+    if (rows.length > 0) {
+      const meter = h(
+        "p",
+        { class: "muted" },
+        "Weekly fractional sets (1.0 primary / 0.5 secondary, ≥4-rep sets):",
+      );
+      const ul = h("ul", {});
+      for (const r of rows) {
+        const dose =
+          r.fractional > 10
+            ? "hypertrophy dose — strength plateaus ~5 sets/lift (doc §3.3)"
+            : "strength band (doc §3.3)";
+        ul.appendChild(
+          h(
+            "li",
+            {},
+            `${r.muscle}: ${Number(r.fractional.toFixed(1))} (${dose}); heaviest session ${Number(r.perSessionMax.toFixed(1))}; ${r.exposures}×/week`,
+          ),
+        );
+      }
+      footerHost.append(h("strong", {}, "Dose (this week)"), meter, ul);
+    }
+    const checks = programChecks(program, exById);
+    if (checks.length > 0) {
+      const ul = h("ul", {});
+      for (const c of checks)
+        ul.appendChild(h("li", { class: c.level === "warn" ? "warn" : "muted" }, c.message));
+      footerHost.append(h("strong", {}, "Guardrails"), ul);
+    }
+  }
+
+  function renderWeekHead(): void {
+    const week = program.weeks[currentWeekIdx];
+    if (!week) return;
+    const labelInput = h("input", {
+      type: "text",
+      "aria-label": "Week label",
+      placeholder: "Week label",
+      value: week.label,
+    }) as HTMLInputElement;
+    labelInput.addEventListener("input", () => {
+      week.label = labelInput.value;
+    });
+    const phaseSeg = h(
+      "div",
+      { class: "segmented", role: "group", "aria-label": "Phase" },
+    );
+    for (const p of PHASES) {
+      phaseSeg.appendChild(
+        h(
+          "button",
+          {
+            type: "button",
+            "aria-pressed": String((week.phase ?? "volume") === p.v),
+            onclick: (e) => {
+              if (!program.weeks[currentWeekIdx]) return;
+              program.weeks[currentWeekIdx]!.phase = p.v;
+              for (const b of phaseSeg.querySelectorAll("button"))
+                b.setAttribute("aria-pressed", String(b === e.currentTarget));
+              renderItems();
+              renderFooter();
+            },
+          },
+          p.label,
+        ),
+      );
+    }
+    weekHead.replaceChildren(
+      h("label", {}, "Week label", labelInput),
+      h("p", { class: "muted" }, "Phase — intro weeks run ~75% volume; deload weeks cut sets ~40% (loads and RPE stay)."),
+      phaseSeg,
+    );
+  }
+
   function rerender(): void {
-    const week = program.weeks[0];
+    currentWeekIdx = Math.max(0, Math.min(currentWeekIdx, program.weeks.length - 1));
+    const week = program.weeks[currentWeekIdx];
     if (!week) return;
     currentDayIdx = Math.min(currentDayIdx, week.days.length - 1);
+    weekTabRow.replaceChildren();
+    program.weeks.forEach((w, wi) => {
+      weekTabRow.appendChild(
+        h(
+          "button",
+          {
+            type: "button",
+            "aria-pressed": String(wi === currentWeekIdx),
+            onclick: () => {
+              currentWeekIdx = wi;
+              currentDayIdx = 0;
+              rerender();
+            },
+          },
+          w.label || `Week ${wi + 1}`,
+        ),
+      );
+    });
     dayTabRow.replaceChildren();
     week.days.forEach((d, di) => {
       dayTabRow.appendChild(
@@ -592,7 +836,9 @@ export async function renderProgramEditor(
         ),
       );
     });
+    renderWeekHead();
     renderItems();
+    renderFooter();
   }
 
   if (program.weeks[0]) {
@@ -600,7 +846,9 @@ export async function renderProgramEditor(
       h(
         "div",
         { class: "card" },
-        h("strong", {}, program.weeks[0].label),
+        h("strong", {}, "Weeks"),
+        weekTabRow,
+        weekHead,
         dayTabRow,
         itemsHost,
         h(
@@ -610,7 +858,41 @@ export async function renderProgramEditor(
             "button",
             {
               onclick: () => {
-                const week = program.weeks[0];
+                const week = program.weeks[currentWeekIdx];
+                if (!week) return;
+                const copy = structuredClone(week);
+                copy.label = `${week.label || "Week"} copy`;
+                program.weeks.splice(currentWeekIdx + 1, 0, copy);
+                currentWeekIdx += 1;
+                rerender();
+              },
+            },
+            "+ Duplicate week",
+          ),
+          h(
+            "button",
+            {
+              onclick: () => {
+                if (program.weeks.length <= 1) {
+                  toast("A program needs at least one week.");
+                  return;
+                }
+                program.weeks.splice(currentWeekIdx, 1);
+                currentWeekIdx = Math.max(0, currentWeekIdx - 1);
+                rerender();
+              },
+            },
+            "− Remove this week",
+          ),
+        ),
+        h(
+          "div",
+          { class: "row" },
+          h(
+            "button",
+            {
+              onclick: () => {
+                const week = program.weeks[currentWeekIdx];
                 if (!week) return;
                 week.days.push({
                   name: `Day ${week.days.length + 1}`,
@@ -626,7 +908,7 @@ export async function renderProgramEditor(
             "button",
             {
               onclick: () => {
-                const week = program.weeks[0];
+                const week = program.weeks[currentWeekIdx];
                 if (!week) return;
                 if (week.days.length <= 1) {
                   toast("A program needs at least one day.");
@@ -639,6 +921,7 @@ export async function renderProgramEditor(
             "− Remove last day",
           ),
         ),
+        footerHost,
       ),
     );
     rerender();

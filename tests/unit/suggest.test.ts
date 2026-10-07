@@ -1,7 +1,7 @@
 /** Unit vectors for suggestion + overload (spec §7) and units. */
 import { describe, expect, it } from "vitest";
 import {
-  buildWarmupSets,
+  buildWarmupRamp,
   freshnessScore,
   generateWorkout,
   groupWorkingSessions,
@@ -223,15 +223,32 @@ describe("recent-window baseline", () => {
 });
 
 describe("warmups", () => {
-  it("builds 8x60% + 3x85% rows", () => {
-    expect(buildWarmupSets(60)).toEqual([
-      { weightKg: 36, reps: 8, isWarmup: true },
-      { weightKg: 51, reps: 3, isWarmup: true },
+  it("builds the §10.4 ramp for ≤6-rep working sets (8@40/4@60/2@80/1@90)", () => {
+    expect(buildWarmupRamp(60, 5)).toEqual([
+      { weightKg: 24, reps: 8, isWarmup: true },
+      { weightKg: 36, reps: 4, isWarmup: true },
+      { weightKg: 48, reps: 2, isWarmup: true },
+      { weightKg: 54, reps: 1, isWarmup: true },
     ]);
-    expect(buildWarmupSets(100)).toEqual([
-      { weightKg: 60, reps: 8, isWarmup: true },
-      { weightKg: 85, reps: 3, isWarmup: true },
+    expect(buildWarmupRamp(100, 6)).toEqual([
+      { weightKg: 40, reps: 8, isWarmup: true },
+      { weightKg: 60, reps: 4, isWarmup: true },
+      { weightKg: 80, reps: 2, isWarmup: true },
+      { weightKg: 90, reps: 1, isWarmup: true },
     ]);
+  });
+
+  it("builds the lighter ceiling ramp for ≥7-rep working sets (5@40/4@60/2@80/1@85)", () => {
+    expect(buildWarmupRamp(100, 8)).toEqual([
+      { weightKg: 40, reps: 5, isWarmup: true },
+      { weightKg: 60, reps: 4, isWarmup: true },
+      { weightKg: 80, reps: 2, isWarmup: true },
+      { weightKg: 85, reps: 1, isWarmup: true },
+    ]);
+  });
+
+  it("bodyweight-only work gets no ramp", () => {
+    expect(buildWarmupRamp(0, 12)).toEqual([]);
   });
 
   it("prepends warmups to the first item per primary muscle only", () => {
@@ -262,10 +279,10 @@ describe("warmups", () => {
       );
       expect(warmed).toHaveLength(1);
       const wu = warmed[0]?.sets.filter((s) => s.isWarmup === true) ?? [];
-      expect(wu).toHaveLength(2);
-      // New movements start at 20 kg → 12×8 + 17×3.
-      expect(wu[0]).toMatchObject({ weightKg: 12, reps: 8 });
-      expect(wu[1]).toMatchObject({ weightKg: 17, reps: 3 });
+      expect(wu).toHaveLength(4);
+      // New movements start at 20 kg → 5@8 / 4@12 / 2@16 / 1@17 (heavy ladder).
+      expect(wu[0]).toMatchObject({ weightKg: 8, reps: 5 });
+      expect(wu[3]).toMatchObject({ weightKg: 17, reps: 1 });
       // Working sets follow the warmups.
       expect(warmed[0]?.sets.filter((s) => s.isWarmup !== true)).toHaveLength(
         3,

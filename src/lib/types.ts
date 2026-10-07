@@ -73,7 +73,7 @@ export interface WorkoutSet {
   reps: number;
   rpe?: number;
   completed: boolean;
-  /** Warmup rows (8×60% + 3×85%) — excluded from e1RM, volume, PRs, recovery, suggestions. Absent = working set. */
+  /** Warmup ramp rows — excluded from e1RM, volume, PRs, recovery, suggestions. Absent = working set. */
   isWarmup?: boolean;
   createdAt: number;
 }
@@ -108,19 +108,42 @@ export interface Settings {
   restNotify: boolean;
   /** v2: id of the single active program; absent = none. */
   activeProgramId?: string;
+  /** Latest §8.3 weekly self-check (5-item fatigue checklist). */
+  lastCheckIn?: { at: number; yesCount: number };
+  /** Active deload window: prefill cuts sets ~40% while now < deloadUntil. */
+  deloadUntil?: number;
   /** v2 seam: unknown future fields (sync, health) survive backup round-trips. */
   [key: string]: unknown;
 }
 
-/** v2 program schemes. Discriminated by `kind` so validation stays local.
- * - "sets-reps": exact sets × reps at a fixed weight (weightKg absent = engine-suggested).
- * - "percent": % of a per-lift training max (5/3/1 style), exact math — never engine- or RPE-adjusted.
- * - "double": reps band; the global double-progression engine moves weight/reps within it.
+/** Program week phase (§7.2 Strength Progression System). Weeks without a tag
+ *  (legacy data) are treated as "volume" — no transform. */
+export type PhaseKind = "intro" | "volume" | "load" | "peak" | "deload";
+
+/** RPE band (0.5-granularity targets, ≥5 — below that RIR stops being meaningful). */
+export interface RpeBand {
+  min: number;
+  max: number;
+}
+
+/** Program schemes (doc §2.3, §6.3, §7.2). Discriminated by `kind` so
+ *  validation stays local. Prescriptions are RPE/RIR bands; %1RM-derived loads
+ *  are a starting gauge that autoregulates on logged RPE — never a rigid target.
+ * - "sets-reps": exact sets × reps at a fixed weight (weightKg absent = engine-suggested); optional RPE target.
+ * - "percent": % ladder of a per-lift anchor (training max, or the running e1RM) shown as a gauge; optional RPE band is the actual prescription.
+ * - "double": reps band; the double-progression engine moves weight/reps within it, gated by an RPE ceiling.
  */
 export type ProgramScheme =
-  | { kind: "sets-reps"; sets: number; reps: number; weightKg?: number }
-  | { kind: "percent"; sets: { pct: number; reps: number }[] }
-  | { kind: "double"; sets: number; minReps: number; maxReps: number };
+  | { kind: "sets-reps"; sets: number; reps: number; weightKg?: number; rpe?: number }
+  | {
+      kind: "percent";
+      sets: { pct: number; reps: number }[];
+      /** RPE band the lifter actually targets; loads self-correct ~2%/0.5 RPE outside it (§2.3). */
+      rpe?: RpeBand;
+      /** Anchor for the pct math: static training max (default) or running e1RM. */
+      of?: "tm" | "e1rm";
+    }
+  | { kind: "double"; sets: number; minReps: number; maxReps: number; rpeCeiling?: number };
 
 export interface ProgramItem {
   exerciseId: string;
@@ -136,6 +159,8 @@ export interface ProgramDay {
 
 export interface ProgramWeek {
   label: string;
+  /** Phase tag driving prefill transforms (intro −25% volume, deload −40% sets). */
+  phase?: PhaseKind;
   days: ProgramDay[];
 }
 

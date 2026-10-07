@@ -64,9 +64,9 @@ describe("v1 → v2 migration", () => {
     await ensureSeeded();
     const programs = await listPrograms();
     expect(programs.length).toBeGreaterThanOrEqual(1);
-    const seeded = await getProgram("prog-531-beginners");
-    expect(seeded?.name).toContain("5/3/1");
-    expect(seeded?.weeks.length).toBe(4);
+    const seeded = await getProgram("prog-sps-strength-base");
+    expect(seeded?.name).toContain("Strength Base");
+    expect(seeded?.weeks.length).toBe(12);
     // Re-seed is idempotent (insert-missing-only).
     await ensureSeeded();
     expect((await listPrograms(true)).length).toBe(programs.length);
@@ -106,16 +106,16 @@ describe("workout program linkage", () => {
     await ensureSeeded();
     const w = await startWorkout({
       title: "Program day",
-      programId: "prog-531-beginners",
+      programId: "prog-sps-strength-base",
       programWeek: 0,
       programDayIndex: 1,
-      items: [{ exerciseId: "back-squat", sets: [{ weightKg: 65, reps: 5 }] }],
+      items: [{ exerciseId: "back-squat", sets: [{ weightKg: 85, reps: 1 }] }],
     });
-    expect(w.programId).toBe("prog-531-beginners");
+    expect(w.programId).toBe("prog-sps-strength-base");
     expect(w.programWeek).toBe(0);
     expect(w.programDayIndex).toBe(1);
     const sets = await getSets(w.id);
     expect(sets.length).toBe(1);
-    expect(sets[0]?.weightKg).toBe(65);
+    expect(sets[0]?.weightKg).toBe(85);
   });
 });

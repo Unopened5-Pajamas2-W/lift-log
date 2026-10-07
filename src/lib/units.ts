@@ -28,3 +28,8 @@ export function overloadIncrementKg(
   if (units === "lb") return isLowerBody ? toKg(5, "lb") : toKg(2.5, "lb");
   return isLowerBody ? 2.5 : 1.25;
 }
+
+/** Round to 4 decimals — keeps percent/deload math exact and stable in storage. */
+export function round4(n: number): number {
+  return Math.round(n * 10000) / 10000;
+}

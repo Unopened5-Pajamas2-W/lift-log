@@ -4,12 +4,45 @@ Local-first, FitBod-lite weight-lifting tracker. No accounts, no backend, no ana
 
 **Strictly personal use — built for Jared alone.** Tailor freely to his preferences and setup. Accessibility features (e.g. VoiceOver support, ARIA labeling, screen-reader testing) are entirely out of scope.
 
-Spec: `copilot_temp/spec-ios-workout-pwa-20260916.md`.
+**Primary goal: strength progress, not hypertrophy.** The app's metrics, suggestions, and progression logic should center on strength gains (e.g. e1RM, rep-max ladders, progressive overload) rather than muscle size or bodybuilding-style volume as the main objective.
+
+**Jared is an intermediate lifter.** Programs, templates, and progression logic should be tailored to an intermediate level — not beginner-style session-to-session linear jumps, and not advanced specialization. Assume meaningful training age with developed technique on main lifts; overload comes in slower, wave-like increments.
+
+## Features
+
+- **Workout logging** — in-place set rows (weight/reps/RPE), warmup ramps
+  (master doc §10.4, keyed to the working set: ≤6-rep sets → 8@40% → 4@60% →
+  2@80% → 1@90%; ≥7-rep sets → 5@40% → 4@60% → 2@80% → 1@85%), rest timer,
+  plate breakdown lines.
+- **Programs** — named multi-week routines (5/3/1-style, custom splits) with
+  per-day prescribed schemes: exact sets × reps, percent-of-anchor (static
+  training max or the running e1RM) carrying an RPE band, or reps-band double
+  progression. Prescriptions are RPE/RIR bands; %1RM loads show back as a
+  starting gauge only. Weeks carry §7.2 phase tags (intro/volume/load/peak/
+  deload) that drive prefill transforms: intro runs ~75% of volume; deload
+  cuts sets ×0.6 while keeping loads, RPE, and frequency. Sessions are
+  scheduled on Today and derived from completed history; cycle wraparound is
+  automatic; the §8.3 weekly 5-item check-in offers a reactive deload week.
+- **Progression** — autoregulated double progression (§6.3): the first working
+  set drives it — band top within the RPE ceiling → +one increment; set-1 miss
+  corrects ~4%/rep; grinding at ≤1 RIR at the band bottom steps back ~5%; two
+  consecutive ≥ 9.5 top sets → 5% deload; ≤ 7.0 at band top accelerates.
+  Banded percent loads are a starting gauge that recalibrates ~2% per 0.5 RPE
+  outside the band (§2.3) — the stored prescription never changes. e1RM comes
+  from one calculator everywhere (§6.5): Epley for multi-rep sets, corpus RPE
+  chart for RPE-logged singles.
+- **Progress analytics** — per-exercise session series, rep-max ladder, muscle
+  split, week streaks, trend charts (uPlot, offline-bundled).
+- **Exercise swap** — ranked substitutes by equipment/recovery; in active
+  program sessions the swap keeps the same set scheme.
+- **Backup** — Export JSON (full dump, including programs) / Export CSV
+  (per-set rows incl. `rpe`) / Import JSON with preview counts and UUID-dedupe
+  merge.
 
 ## Stack
 
 - Vite 6 + TypeScript 5 (`strict`), vanilla SPA (hash router)
-- Storage: IndexedDB via [`idb`](https://github.com/jakearchibald/idb) (typed, sole runtime dep) + `src/lib/store.ts`
+- Storage: IndexedDB via [`idb`](https://github.com/jakearchibald/idb) (typed) + `src/lib/store.ts`
 - Charts: [`uplot`](https://github.com/leeoniya/uPlot) (bundled, offline-safe; `src/components/trendChart.ts` is the only importer)
 - PWA: service worker generated at build time by [`vite-plugin-pwa`](https://vite-pwa-org.netlify.app/)
   (Workbox precache + offline navigation fallback); update checks are
@@ -17,7 +50,8 @@ Spec: `copilot_temp/spec-ios-workout-pwa-20260916.md`.
   deferred until no workout is active (`src/sw-register.ts`)
 - Pure logic: `metrics.ts` (Epley e1RM, volume, PRs), `recovery.ts` (6-day decay map),
   `suggest.ts` (seeded next-workout + overload prefill), `units.ts`, `timer.ts`, `backup.ts`,
-  `analytics.ts` (per-exercise session series, rep-max ladder, muscle split, week streaks)
+  `analytics.ts` (per-exercise session series, rep-max ladder, muscle split, week streaks),
+  `progression.ts`, `programs.ts`
 - Dev-only: `vitest`, `eslint`, `prettier`, `vite-plugin-pwa` (never shipped)
 
 ## Dependencies policy (read carefully)
@@ -46,7 +80,8 @@ npm install
 npm run dev        # local dev
 npm test           # unit tests (spec §7 vectors)
 npm run build      # typecheck + production build → dist/
-npm run preview    # serve dist/ (use --https for PWA install testing)
+npm run preview    # serve dist/
+npm run preview:https # serve dist/ over HTTPS (PWA install testing)
 npm run lint       # eslint src tests scripts
 ```
 
@@ -57,7 +92,6 @@ Deploy: copy `dist/` to any HTTPS static host (GitHub Pages workflow included).
 1. Deploy `dist/` to any HTTPS static host (GitHub Pages workflow included).
 2. Open the URL in Safari → Share → **Add to Home Screen** → Add.
 3. Launch Lift Log from the Home Screen (fullscreen, offline-capable).
-4. In-app help lives in Settings → Install on iPhone.
 
 ## Backup
 
@@ -78,8 +112,11 @@ After making changes, run the quality gates (`npm run build`, `npm test`, `npm r
 
 - `index.html`, `public/manifest.webmanifest`, `public/icons/` (SW + Workbox runtime are generated into `dist/` at build time by vite-plugin-pwa)
 - `src/main.ts`, `src/app.ts`, `src/styles.css`, `src/sw-register.ts`
-- `src/lib/` (store via idb, metrics, recovery, suggest, units, timer, backup, analytics), `src/components/`, `src/views/`, `src/data/` (84 seeded exercises + 3 templates)
+- `src/lib/` (store via idb, metrics, recovery, suggest, units, timer, backup, analytics), `src/components/`, `src/views/`, `src/data/` (82 seeded exercises + 3 templates; `src/data/programs.json` is generated by `scripts/gen-programs.mjs`)
 - `tests/unit/`, `scripts/make-icons.mjs`
+- `docs/strength-science.md` — strength-science master reference; consult before changing
+  programs, progression logic, or any training-related surface. Archived sources live in
+  `docs/source_docs_for_strength_science_master/` (`synthesis/`, `corpus/`, `research/`).
 
 ## Conventions
 

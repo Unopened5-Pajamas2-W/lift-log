@@ -1,259 +1,2685 @@
 [
   {
-    "id": "prog-531-beginners",
-    "name": "5/3/1 for Beginners (example)",
-    "description": "Classic 5/3/1 monthly progression on the big lifts at 85% of your true 1RM (the training max), plus accessories by feel. Edit the training maxes to match your lifts.",
+    "id": "prog-sps-strength-base",
+    "name": "Strength Base — volume → load → peak (example)",
+    "description": "Phased strength program: intro → volume → deload → load → peak. Each session opens with one single at a prescribed RPE on its main lift — that feeds the e1RM trend; accessories run autoregulated double progression (band top within the RPE ceiling → +weight). The % loads are starting gauges: they anchor to the placeholder training maxes first, then to your running e1RM, and self-correct ~2% per 0.5 RPE off-target. Deloads otherwise run reactively via the weekly check-in on Today.",
     "weeks": [
       {
-        "label": "Week 1 — 65/75/85%",
+        "label": "Intro",
+        "phase": "intro",
         "days": [
           {
             "name": "Squat + Push",
             "items": [
               {
                 "exerciseId": "back-squat",
-                "scheme": { "kind": "percent", "sets": [{ "pct": 0.65, "reps": 5 }, { "pct": 0.75, "reps": 5 }, { "pct": 0.85, "reps": 5 }] },
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 6,
+                    "max": 6
+                  },
+                  "of": "e1rm"
+                },
                 "trainingMaxKg": 100
               },
-              {
-                "exerciseId": "dumbbell-bench-press",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
-              },
-              {
-                "exerciseId": "triceps-pushdown",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 10, "maxReps": 15 }
-              },
-              {
-                "exerciseId": "lateral-raise"
-              }
-            ]
-          },
-          {
-            "name": "Deadlift + Pull",
-            "items": [
               {
                 "exerciseId": "deadlift",
-                "scheme": { "kind": "percent", "sets": [{ "pct": 0.65, "reps": 5 }, { "pct": 0.75, "reps": 5 }, { "pct": 0.85, "reps": 5 }] },
-                "trainingMaxKg": 100
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
               },
               {
-                "exerciseId": "lat-pulldown",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "leg-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
               },
               {
-                "exerciseId": "barbell-curl",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "machine-chest-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lying-leg-curl",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
               }
             ]
           },
           {
-            "name": "Bench + Push",
+            "name": "Bench + Pull",
             "items": [
               {
                 "exerciseId": "barbell-bench-press",
-                "scheme": { "kind": "percent", "sets": [{ "pct": 0.65, "reps": 5 }, { "pct": 0.75, "reps": 5 }, { "pct": 0.85, "reps": 5 }] },
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 6,
+                    "max": 6
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "incline-dumbbell-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "seated-cable-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lateral-raise",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Practice",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 6,
+                    "max": 6
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
                 "trainingMaxKg": 100
               },
               {
-                "exerciseId": "overhead-press",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
               },
               {
-                "exerciseId": "dips-chest",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "barbell-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
               }
             ]
           }
         ]
       },
       {
-        "label": "Week 2 — 70/80/90%",
+        "label": "Volume 1",
+        "phase": "volume",
         "days": [
           {
             "name": "Squat + Push",
             "items": [
               {
                 "exerciseId": "back-squat",
-                "scheme": { "kind": "percent", "sets": [{ "pct": 0.7, "reps": 3 }, { "pct": 0.8, "reps": 3 }, { "pct": 0.9, "reps": 3 }] },
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 5
+                  },
+                  "of": "e1rm"
+                },
                 "trainingMaxKg": 100
               },
-              {
-                "exerciseId": "dumbbell-bench-press",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
-              },
-              {
-                "exerciseId": "triceps-pushdown",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 10, "maxReps": 15 }
-              },
-              {
-                "exerciseId": "lateral-raise"
-              }
-            ]
-          },
-          {
-            "name": "Deadlift + Pull",
-            "items": [
               {
                 "exerciseId": "deadlift",
-                "scheme": { "kind": "percent", "sets": [{ "pct": 0.7, "reps": 3 }, { "pct": 0.8, "reps": 3 }, { "pct": 0.9, "reps": 3 }] },
-                "trainingMaxKg": 100
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
               },
               {
-                "exerciseId": "lat-pulldown",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "leg-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
               },
               {
-                "exerciseId": "barbell-curl",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "machine-chest-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lying-leg-curl",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
               }
             ]
           },
           {
-            "name": "Bench + Push",
+            "name": "Bench + Pull",
             "items": [
               {
                 "exerciseId": "barbell-bench-press",
-                "scheme": { "kind": "percent", "sets": [{ "pct": 0.7, "reps": 3 }, { "pct": 0.8, "reps": 3 }, { "pct": 0.9, "reps": 3 }] },
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 5
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "incline-dumbbell-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "seated-cable-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lateral-raise",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Practice",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 5
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
                 "trainingMaxKg": 100
               },
               {
-                "exerciseId": "overhead-press",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
               },
               {
-                "exerciseId": "dips-chest",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "barbell-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
               }
             ]
           }
         ]
       },
       {
-        "label": "Week 3 — 75/85/95%",
+        "label": "Volume 2",
+        "phase": "volume",
         "days": [
           {
             "name": "Squat + Push",
             "items": [
               {
                 "exerciseId": "back-squat",
-                "scheme": { "kind": "percent", "sets": [{ "pct": 0.75, "reps": 5 }, { "pct": 0.85, "reps": 3 }, { "pct": 0.95, "reps": 1 }] },
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 6,
+                    "max": 6
+                  },
+                  "of": "e1rm"
+                },
                 "trainingMaxKg": 100
               },
-              {
-                "exerciseId": "dumbbell-bench-press",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
-              },
-              {
-                "exerciseId": "triceps-pushdown",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 10, "maxReps": 15 }
-              },
-              {
-                "exerciseId": "lateral-raise"
-              }
-            ]
-          },
-          {
-            "name": "Deadlift + Pull",
-            "items": [
               {
                 "exerciseId": "deadlift",
-                "scheme": { "kind": "percent", "sets": [{ "pct": 0.75, "reps": 5 }, { "pct": 0.85, "reps": 3 }, { "pct": 0.95, "reps": 1 }] },
-                "trainingMaxKg": 100
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
               },
               {
-                "exerciseId": "lat-pulldown",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "leg-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
               },
               {
-                "exerciseId": "barbell-curl",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "machine-chest-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lying-leg-curl",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
               }
             ]
           },
           {
-            "name": "Bench + Push",
+            "name": "Bench + Pull",
             "items": [
               {
                 "exerciseId": "barbell-bench-press",
-                "scheme": { "kind": "percent", "sets": [{ "pct": 0.75, "reps": 5 }, { "pct": 0.85, "reps": 3 }, { "pct": 0.95, "reps": 1 }] },
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 6,
+                    "max": 6
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "incline-dumbbell-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "seated-cable-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lateral-raise",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Practice",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 6,
+                    "max": 6
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
                 "trainingMaxKg": 100
               },
               {
-                "exerciseId": "overhead-press",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
               },
               {
-                "exerciseId": "dips-chest",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "barbell-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
               }
             ]
           }
         ]
       },
       {
-        "label": "Week 4 — Deload 40/50/60%",
+        "label": "Volume 3",
+        "phase": "volume",
         "days": [
           {
             "name": "Squat + Push",
             "items": [
               {
                 "exerciseId": "back-squat",
-                "scheme": { "kind": "percent", "sets": [{ "pct": 0.4, "reps": 5 }, { "pct": 0.5, "reps": 5 }, { "pct": 0.6, "reps": 5 }] },
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.9,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 7,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
                 "trainingMaxKg": 100
               },
-              {
-                "exerciseId": "dumbbell-bench-press",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
-              },
-              {
-                "exerciseId": "triceps-pushdown",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 10, "maxReps": 15 }
-              },
-              {
-                "exerciseId": "lateral-raise"
-              }
-            ]
-          },
-          {
-            "name": "Deadlift + Pull",
-            "items": [
               {
                 "exerciseId": "deadlift",
-                "scheme": { "kind": "percent", "sets": [{ "pct": 0.4, "reps": 5 }, { "pct": 0.5, "reps": 5 }, { "pct": 0.6, "reps": 5 }] },
-                "trainingMaxKg": 100
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
               },
               {
-                "exerciseId": "lat-pulldown",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "leg-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
               },
               {
-                "exerciseId": "barbell-curl",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "machine-chest-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lying-leg-curl",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
               }
             ]
           },
           {
-            "name": "Bench + Push",
+            "name": "Bench + Pull",
             "items": [
               {
                 "exerciseId": "barbell-bench-press",
-                "scheme": { "kind": "percent", "sets": [{ "pct": 0.4, "reps": 5 }, { "pct": 0.5, "reps": 5 }, { "pct": 0.6, "reps": 5 }] },
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.9,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 7,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "incline-dumbbell-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "seated-cable-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lateral-raise",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Practice",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.9,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 7,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
                 "trainingMaxKg": 100
               },
               {
-                "exerciseId": "overhead-press",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
               },
               {
-                "exerciseId": "dips-chest",
-                "scheme": { "kind": "double", "sets": 3, "minReps": 8, "maxReps": 12 }
+                "exerciseId": "barbell-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Volume 4",
+        "phase": "volume",
+        "days": [
+          {
+            "name": "Squat + Push",
+            "items": [
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.92,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 8,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "leg-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "machine-chest-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lying-leg-curl",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Bench + Pull",
+            "items": [
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.92,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 8,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "incline-dumbbell-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "seated-cable-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lateral-raise",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Practice",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.92,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 8,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "barbell-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Deload",
+        "phase": "deload",
+        "days": [
+          {
+            "name": "Squat + Push",
+            "items": [
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 6,
+                    "max": 6
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "leg-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "machine-chest-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lying-leg-curl",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Bench + Pull",
+            "items": [
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 6,
+                    "max": 6
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "incline-dumbbell-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "seated-cable-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lateral-raise",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Practice",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 6,
+                    "max": 6
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "barbell-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 3,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Load 1",
+        "phase": "load",
+        "days": [
+          {
+            "name": "Squat + Push",
+            "items": [
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.9,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 7,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 5
+                    },
+                    {
+                      "pct": 0.85,
+                      "reps": 5
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "machine-chest-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lying-leg-curl",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Bench + Pull",
+            "items": [
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.9,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 7,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 5
+                    },
+                    {
+                      "pct": 0.85,
+                      "reps": 5
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "incline-dumbbell-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "seated-cable-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lateral-raise",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Practice",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.9,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 7,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 5
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 5
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "barbell-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Load 2",
+        "phase": "load",
+        "days": [
+          {
+            "name": "Squat + Push",
+            "items": [
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.92,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 8,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 4
+                    },
+                    {
+                      "pct": 0.85,
+                      "reps": 4
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "machine-chest-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lying-leg-curl",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Bench + Pull",
+            "items": [
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.92,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 8,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 4
+                    },
+                    {
+                      "pct": 0.85,
+                      "reps": 4
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "incline-dumbbell-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "seated-cable-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lateral-raise",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Practice",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.92,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 8,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 4
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 4
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "barbell-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Load 3",
+        "phase": "load",
+        "days": [
+          {
+            "name": "Squat + Push",
+            "items": [
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.935,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 8.5,
+                    "max": 8.5
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 4
+                    },
+                    {
+                      "pct": 0.85,
+                      "reps": 4
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "machine-chest-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lying-leg-curl",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Bench + Pull",
+            "items": [
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.935,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 8.5,
+                    "max": 8.5
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 4
+                    },
+                    {
+                      "pct": 0.85,
+                      "reps": 4
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "incline-dumbbell-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "seated-cable-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lateral-raise",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Practice",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.935,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 8.5,
+                    "max": 8.5
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 4
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 4
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "barbell-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Load 4",
+        "phase": "load",
+        "days": [
+          {
+            "name": "Squat + Push",
+            "items": [
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.95,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 9,
+                    "max": 9
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 3
+                    },
+                    {
+                      "pct": 0.85,
+                      "reps": 3
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "machine-chest-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lying-leg-curl",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Bench + Pull",
+            "items": [
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.95,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 9,
+                    "max": 9
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.85,
+                      "reps": 3
+                    },
+                    {
+                      "pct": 0.85,
+                      "reps": 3
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "incline-dumbbell-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "seated-cable-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lateral-raise",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Practice",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.95,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 9,
+                    "max": 9
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 3
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 3
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "barbell-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 2,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Peak 1",
+        "phase": "peak",
+        "days": [
+          {
+            "name": "Squat + Push",
+            "items": [
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.92,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 8,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.736,
+                      "reps": 3
+                    },
+                    {
+                      "pct": 0.736,
+                      "reps": 3
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "machine-chest-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lying-leg-curl",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Bench + Pull",
+            "items": [
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.92,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 8,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.736,
+                      "reps": 3
+                    },
+                    {
+                      "pct": 0.736,
+                      "reps": 3
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "incline-dumbbell-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "seated-cable-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lateral-raise",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Practice",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.92,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 8,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.736,
+                      "reps": 3
+                    },
+                    {
+                      "pct": 0.736,
+                      "reps": 3
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "barbell-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Peak 2",
+        "phase": "peak",
+        "days": [
+          {
+            "name": "Squat + Push",
+            "items": [
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.95,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 9,
+                    "max": 9
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.76,
+                      "reps": 3
+                    },
+                    {
+                      "pct": 0.76,
+                      "reps": 3
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "machine-chest-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lying-leg-curl",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Bench + Pull",
+            "items": [
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.95,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 9,
+                    "max": 9
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "barbell-bench-press",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.76,
+                      "reps": 3
+                    },
+                    {
+                      "pct": 0.76,
+                      "reps": 3
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 80
+              },
+              {
+                "exerciseId": "incline-dumbbell-press",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "seated-cable-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
+              },
+              {
+                "exerciseId": "lateral-raise",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 10,
+                  "maxReps": 15,
+                  "rpeCeiling": 8
+                }
+              }
+            ]
+          },
+          {
+            "name": "Deadlift + Practice",
+            "items": [
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.95,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 9,
+                    "max": 9
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "deadlift",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.76,
+                      "reps": 3
+                    },
+                    {
+                      "pct": 0.76,
+                      "reps": 3
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 8
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 120
+              },
+              {
+                "exerciseId": "back-squat",
+                "scheme": {
+                  "kind": "percent",
+                  "sets": [
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    },
+                    {
+                      "pct": 0.8,
+                      "reps": 1
+                    }
+                  ],
+                  "rpe": {
+                    "min": 5,
+                    "max": 7
+                  },
+                  "of": "e1rm"
+                },
+                "trainingMaxKg": 100
+              },
+              {
+                "exerciseId": "barbell-row",
+                "scheme": {
+                  "kind": "double",
+                  "sets": 1,
+                  "minReps": 8,
+                  "maxReps": 12,
+                  "rpeCeiling": 8
+                }
               }
             ]
           }
         ]
       }
-    ],
-    "createdAt": 0,
-    "updatedAt": 0
+    ]
   }
 ]

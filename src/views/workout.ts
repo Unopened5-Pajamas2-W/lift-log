@@ -26,17 +26,22 @@ import {
 import {
   rankSubstitutes,
   suggestNextWeight,
-  buildWarmupSets,
+  buildWarmupRamp,
 } from "../lib/suggest.ts";
 import { recoveryMap } from "../lib/recovery.ts";
 import { ensureAudio } from "../lib/timer.ts";
 import { plateBreakdown, formatPlateLine } from "../lib/plates.ts";
 import { getProgram } from "../lib/store.ts";
-import { resolveProgramItem } from "../lib/programs.ts";
-import { doubleProgression } from "../lib/progression.ts";
+import {
+  resolveProgramItem,
+  type ExpandContext,
+  type ExpandedItem,
+} from "../lib/programs.ts";
+import { buildExpandContext } from "../lib/sessionContext.ts";
 import type {
   Exercise,
   MuscleGroup,
+  RpeBand,
   WorkoutSet,
 } from "../lib/types.ts";
 import { displayWeight } from "../lib/units.ts";
@@ -97,6 +102,52 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
     counterSpan.textContent = `${done}/${setsById.size} sets`;
   }
   updateCounter();
+
+  /** Resolved RPE band per exercise (prescribed targets; display + stepper). */
+  const rpeBandsByEx = new Map<string, RpeBand>();
+
+  /**
+   * Resolve a program item for one exercise inside a workout-stamped session
+   * (best-effort: storage or scheme failures resolve to undefined). Swaps
+   * inherit the OUTGOING item's scheme so the substitute keeps the same
+   * set scheme; percent ladders don't translate across equipment classes,
+   * so cross-equipment substitutes fall back to the engine suggestion.
+   */
+  async function resolveWorkoutItem(
+    exerciseId: string,
+    ex: Exercise,
+    inheritFrom?: string,
+  ): Promise<ExpandedItem | undefined> {
+    if (!workout?.programId || workout.programWeek === undefined)
+      return undefined;
+    try {
+      const program = await getProgram(workout.programId);
+      const day =
+        program?.weeks[workout.programWeek]?.days[workout.programDayIndex ?? 0];
+      const item =
+        day?.items.find((i) => i.exerciseId === exerciseId) ??
+        (inheritFrom
+          ? day?.items.find((i) => i.exerciseId === inheritFrom)
+          : undefined);
+      if (!item) return undefined;
+      if (item.exerciseId !== exerciseId && inheritFrom) {
+        const outgoing = await getExercise(inheritFrom).catch(() => undefined);
+        if (outgoing && outgoing.equipment !== ex.equipment) return undefined;
+      }
+      const context: ExpandContext = {
+        ...(await buildExpandContext({
+          units: settings.units,
+          exerciseById: new Map([[exerciseId, ex]]),
+          exerciseIds: [exerciseId],
+          now: Date.now(),
+        })),
+      };
+      return (await resolveProgramItem(item, context)) ?? undefined;
+    } catch (err) {
+      console.error(err); // scheme lookup is best-effort
+      return undefined;
+    }
+  }
 
   root.appendChild(
     h("header", { class: "topbar" }, h("h1", {}, workout.title), counterSpan),
@@ -193,19 +244,38 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
    * hasn't been trained this session. Shared by Add and Swap. Throws on
    * storage failure (and for an unknown exercise) — caller owns rollback.
    */
-  async function addExerciseSets(exerciseId: string): Promise<WorkoutSet[]> {
+  async function addExerciseSets(
+    exerciseId: string,
+    inheritFrom?: string,
+  ): Promise<WorkoutSet[]> {
     const ex = await getExercise(exerciseId);
     if (!ex) throw new Error(`unknown exercise: ${exerciseId}`);
     const sugg = await suggestionFor(exerciseId, ex.primaryMuscle);
-    const workingKg = sugg ?? 20;
-    // First exercise per primary muscle opens with the warmup ramp.
+    const nowTs = Date.now();
+    // R19: a swap inside a program session keeps the same set scheme — the
+    // substitute resolves against the outgoing item's scheme via
+    // resolveWorkoutItem; everything else prefills the engine suggestion.
+    let working: { weightKg: number; reps: number }[] = [
+      { weightKg: sugg ?? 20, reps: 8 },
+    ];
+    const expanded = await resolveWorkoutItem(exerciseId, ex, inheritFrom);
+    if (expanded && expanded.sets.length > 0) {
+      working = expanded.sets.map((s) => ({
+        weightKg: s.weightKg,
+        reps: s.reps,
+      }));
+      if (expanded.rpeBand) rpeBandsByEx.set(exerciseId, expanded.rpeBand);
+      else rpeBandsByEx.delete(exerciseId);
+    }
+    // First exercise per primary muscle opens with the warmup ramp, built
+    // from the heaviest working row (§10.4).
     const unseenMuscle = ![...muscleByEx.values()].includes(ex.primaryMuscle);
     muscleByEx.set(exerciseId, ex.primaryMuscle);
-    const nowTs = Date.now();
     let order = nextOrder();
     const rows: WorkoutSet[] = [];
     if (unseenMuscle) {
-      for (const w of buildWarmupSets(workingKg)) {
+      const top = working.reduce((a, b) => (b.weightKg > a.weightKg ? b : a));
+      for (const w of buildWarmupRamp(top.weightKg, top.reps)) {
         rows.push({
           id: uuid(),
           workoutId,
@@ -217,55 +287,6 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
           isWarmup: true,
           createdAt: nowTs,
         });
-      }
-    }
-    // R19: a swap inside a program session keeps the same set scheme.
-    // Percent schemes recompute weights only for same-equipment substitutes
-    // (the outgoing item's training max is reused); reps are never silently
-    // re-prescribed for the substitute.
-    let working: { weightKg: number; reps: number }[] = [
-      { weightKg: workingKg, reps: 8 },
-    ];
-    if (
-      workout !== undefined &&
-      workout.programId &&
-      workout.programWeek !== undefined
-    ) {
-      try {
-        const program = await getProgram(workout.programId);
-        const day =
-          program?.weeks[workout.programWeek]?.days[
-            workout.programDayIndex ?? 0
-          ];
-        const item = day?.items.find((i) => i.exerciseId === exerciseId);
-        if (item) {
-          const prescribed = resolveProgramItem(item, {
-            suggestedWeightKg: sugg,
-          });
-          if (prescribed && prescribed.length > 0) {
-            working = prescribed;
-          } else if (item.scheme?.kind === "double") {
-            const history = (await getSetsForExercise(exerciseId)).filter(
-              (s) => s.completed,
-            );
-            const engine = doubleProgression({
-              lastSets: history,
-              band: {
-                minReps: item.scheme.minReps,
-                maxReps: item.scheme.maxReps,
-              },
-              primaryMuscle: ex.primaryMuscle,
-              units: settings.units,
-              now: nowTs,
-            });
-            working = Array.from({ length: item.scheme.sets }, () => ({
-              weightKg: engine.weightKg,
-              reps: engine.reps,
-            }));
-          }
-        }
-      } catch (err) {
-        console.error(err); // scheme lookup is best-effort
       }
     }
     for (const r of working) {
@@ -338,7 +359,8 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
     }
     updateCounter();
     try {
-      const rows = await addExerciseSets(newExerciseId);
+      // The substitute inherits the outgoing item's scheme (same set scheme).
+      const rows = await addExerciseSets(newExerciseId, exerciseId);
       const oldCard = cardsByEx.get(exerciseId);
       const newCard = await buildExerciseCard(newExerciseId);
       cardsByEx.set(newExerciseId, newCard);
@@ -423,6 +445,17 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
     const sugg = ex
       ? await suggestionFor(exerciseId, ex.primaryMuscle)
       : undefined;
+    // Prescribed RPE band (§2.3): displayed on the card and prefilled into
+    // the rows' RPE stepper. addExerciseSets stores it for newly added
+    // exercises; prefilled program sessions resolve it here.
+    let rpeBand = rpeBandsByEx.get(exerciseId);
+    if (!rpeBand && ex) {
+      const expanded = await resolveWorkoutItem(exerciseId, ex);
+      if (expanded?.rpeBand) {
+        rpeBand = expanded.rpeBand;
+        rpeBandsByEx.set(exerciseId, rpeBand);
+      }
+    }
 
     const card = h("div", { class: "card" });
     const header = h(
@@ -485,6 +518,10 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
         units: settings.units,
         suggestionKg: sugg,
         showRpe: true,
+        presetRpe:
+          set.isWarmup === true || !rpeBand
+            ? undefined
+            : (rpeBand.min + rpeBand.max) / 2,
         onChange: (next) => {
           // Sync within the tap's call stack: iOS unlocks audio by gesture only.
           if (next.completed && !set.completed) ensureAudio();
@@ -612,6 +649,11 @@ export async function renderWorkout(id?: string): Promise<HTMLElement> {
         ),
       ),
     );
+    if (rpeBand) {
+      card.appendChild(
+        h("p", { class: "muted" }, `Target: ${rpeBand.min}–${rpeBand.max} RPE`),
+      );
+    }
     if (sugg != null) {
       card.appendChild(
         h(

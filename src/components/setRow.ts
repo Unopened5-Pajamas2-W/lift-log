@@ -12,6 +12,8 @@ export interface SetRowOpts {
   suggestionKg?: number; // ghost suggestion hint (prefill happens at creation)
   /** v2 R11: show the optional RPE stepper (working sets only; warmups never). */
   showRpe?: boolean;
+  /** Prescribed RPE target (program schemes): anchors the stepper's start. */
+  presetRpe?: number;
   onChange: (next: WorkoutSet) => void;
   onDelete: () => void;
 }
@@ -179,13 +181,20 @@ export function renderSetRow(opts: SetRowOpts): HTMLElement {
   const rpeCell = showRpeCell
     ? (() => {
         const RPE_STEPS = [1, 2, 3, 4, 5, 6, 7, 7.5, 8, 8.5, 9, 9.5, 10];
+        const preset = opts.presetRpe;
         const rpeValue = h(
           "span",
-          { class: "rpe-value", "data-focus-key": "rpe" },
+          {
+            class: "rpe-value",
+            "data-focus-key": "rpe",
+            ...(preset != null && set.rpe == null
+              ? { title: `Target: ${preset} RPE` }
+              : {}),
+          },
           set.rpe != null ? String(set.rpe) : "—",
         );
         const move = (dir: 1 | -1) => {
-          const cur = set.rpe ?? 7;
+          const cur = set.rpe ?? preset ?? 7;
           const i = RPE_STEPS.indexOf(cur);
           const next =
             i === -1

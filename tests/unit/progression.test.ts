@@ -1,4 +1,4 @@
-/** Unit vectors for double progression + RPE adjustments (v2 spec §7.1). */
+/** Unit vectors for autoregulated double progression (doc §6.3, §2.3). */
 import { describe, expect, it } from "vitest";
 import {
   doubleProgression,
@@ -14,12 +14,12 @@ function set(
   weightKg: number,
   reps: number,
   opts: Partial<
-    Pick<WorkoutSet, "rpe" | "completed" | "isWarmup" | "workoutId" | "createdAt">
+    Pick<WorkoutSet, "rpe" | "completed" | "isWarmup" | "workoutId" | "createdAt" | "order">
   > = {},
-): Pick<
+): (Pick<
   WorkoutSet,
   "weightKg" | "reps" | "completed" | "createdAt" | "workoutId" | "isWarmup" | "rpe"
-> {
+> & { order?: number }) {
   return {
     weightKg,
     reps,
@@ -32,7 +32,11 @@ function set(
 
 function dp(
   lastSets: ReturnType<typeof set>[],
-  opts: { band?: { minReps: number; maxReps: number }; muscle?: "chest" | "quads" } = {},
+  opts: {
+    band?: { minReps: number; maxReps: number };
+    muscle?: "chest" | "quads";
+    rpeCeiling?: number;
+  } = {},
 ) {
   return doubleProgression({
     lastSets,
@@ -40,19 +44,26 @@ function dp(
     primaryMuscle: opts.muscle ?? "chest",
     units: "kg",
     now: NOW,
+    rpeCeiling: opts.rpeCeiling,
   });
 }
 
-describe("double progression (R12)", () => {
+describe("double progression (set-1 driven, §6.3)", () => {
   it("band 8→12: 3×8 all at floor → same weight, 9 reps", () => {
     expect(
       dp([set(60, 8), set(60, 8), set(60, 8)]),
     ).toEqual({ weightKg: 60, reps: 9 });
   });
 
-  it("3×12 at band top → +increment, reps reset to floor", () => {
+  it("set 1 clears the band top → +increment, reps reset to floor", () => {
     expect(
       dp([set(60, 12), set(60, 12), set(60, 12)]),
+    ).toEqual({ weightKg: 61.25, reps: 8 });
+  });
+
+  it("later sets ride set 1's load: only set 1 clears the top → still advance", () => {
+    expect(
+      dp([set(60, 12), set(60, 8)]),
     ).toEqual({ weightKg: 61.25, reps: 8 });
   });
 
@@ -62,22 +73,43 @@ describe("double progression (R12)", () => {
     ).toEqual({ weightKg: 82.5, reps: 8 });
   });
 
-  it("mid-band mixed session → hold weight, min(best+1, ceil)", () => {
+  it("mid-band session → hold weight, set-1 reps + 1 (capped at ceil)", () => {
     expect(
       dp([set(60, 10), set(60, 9), set(60, 12)]),
-    ).toEqual({ weightKg: 60, reps: 12 });
+    ).toEqual({ weightKg: 60, reps: 11 });
   });
 
-  it("best already at ceil but one set short → hold, reps capped at ceil", () => {
+  it("set 1 miss → ~4%/rep correction (2 short = −8%)", () => {
     expect(
-      dp([set(60, 12), set(60, 8)]),
-    ).toEqual({ weightKg: 60, reps: 12 });
+      dp([set(60, 6), set(60, 8)]),
+    ).toEqual({ weightKg: 55.2, reps: 8 });
   });
 
-  it("a set below the floor holds weight at floor (no reduction)", () => {
+  it("a LATER set below the floor holds weight at floor (no reduction)", () => {
     expect(
       dp([set(60, 8), set(60, 7), set(60, 8)]),
     ).toEqual({ weightKg: 60, reps: 8 });
+  });
+
+  it("all sets at floor with RPE ≥ 9 (≤1 RIR grind) → one step back −5%", () => {
+    expect(
+      dp([set(60, 8, { rpe: 9 }), set(60, 8, { rpe: 9 })]),
+    ).toEqual({ weightKg: 57, reps: 8 });
+  });
+
+  it("grind needs logged RPE — unlogged floor session just climbs reps", () => {
+    expect(
+      dp([set(60, 8, { rpe: 9 }), set(60, 8)]),
+    ).toEqual({ weightKg: 60, reps: 9 });
+  });
+
+  it("rpeCeiling gates the advance (default 8: 12 @ RPE 9 holds)", () => {
+    expect(
+      dp([set(60, 12, { rpe: 9 })]),
+    ).toEqual({ weightKg: 60, reps: 12 });
+    expect(
+      dp([set(60, 12, { rpe: 9 })], { rpeCeiling: 10 }),
+    ).toEqual({ weightKg: 61.25, reps: 8 });
   });
 
   it("no history → 20 kg at band floor", () => {
@@ -113,7 +145,7 @@ describe("double progression (R12)", () => {
   });
 });
 
-describe("RPE adjustments (R14)", () => {
+describe("RPE adjustments (§2.3/R14)", () => {
   it("top set RPE ≥ 9.5 at band top → hold weight (R14a)", () => {
     expect(
       dp([set(60, 12, { rpe: 9.5 }), set(60, 12, { rpe: 9 })]),
@@ -171,11 +203,6 @@ describe("RPE adjustments (R14)", () => {
   it("deload is idempotent with the −2-reps deload — no stacking", () => {
     // Latest session: RPE 9.5 AND a −2 rep shortfall. Both valves suggest 5%;
     // result must be a single 5% cut, not 9.75%.
-    const lastSets = [
-      ...prevSession([[60, 12, 9.5]], 1),
-      ...latestSession([[60, 12, 9.5]]),
-      ...latestSession([[60, 6]]),
-    ];
     const out = doubleProgression({
       lastSets: [
         ...prevSession([[60, 12, 9.5]], 1),
@@ -188,7 +215,6 @@ describe("RPE adjustments (R14)", () => {
       now: NOW,
     });
     expect(out.weightKg).toBe(57);
-    expect(lastSets.length).toBeGreaterThan(0);
   });
 
   it("one ≥9.5 session followed by a clean one → no deload", () => {

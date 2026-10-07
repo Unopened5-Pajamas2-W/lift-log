@@ -4,8 +4,10 @@ import {
   checkPRs,
   epley1RM,
   isPR,
+  pct1rmForRpe,
   sessionBestE1RM,
   sessionVolume,
+  setE1RM,
   setVolume,
 } from "../../src/lib/metrics.ts";
 
@@ -58,5 +60,38 @@ describe("metrics", () => {
     const prev = epley1RM(60, 8);
     const next = epley1RM(62.5, 8);
     expect(checkPRs(next, 500, prev, 480).e1rmPR).toBe(true);
+  });
+});
+
+describe("RPE-anchored e1RM (doc §2.3, §6.5)", () => {
+  it("pct1rmForRpe follows the corpus anchors with half-step interpolation", () => {
+    expect(pct1rmForRpe(7)).toBeCloseTo(0.9, 5);
+    expect(pct1rmForRpe(7.5)).toBeCloseTo(0.91, 5);
+    expect(pct1rmForRpe(8)).toBeCloseTo(0.92, 5);
+    expect(pct1rmForRpe(8.5)).toBeCloseTo(0.935, 5);
+    expect(pct1rmForRpe(9)).toBeCloseTo(0.95, 5);
+    expect(pct1rmForRpe(9.5)).toBeCloseTo(0.97, 5);
+    expect(pct1rmForRpe(10)).toBe(1);
+    // Clamped outside the meaningful range.
+    expect(pct1rmForRpe(5)).toBeCloseTo(0.9, 5);
+    expect(pct1rmForRpe(11)).toBe(1);
+  });
+
+  it("single @ RPE 9 → e1RM = load / 0.95 (the doc's daily-1RM calculator)", () => {
+    expect(setE1RM({ weightKg: 150, reps: 1, rpe: 9 })).toBeCloseTo(157.8947, 3);
+    expect(setE1RM({ weightKg: 100, reps: 1, rpe: 8 })).toBeCloseTo(108.6957, 3);
+  });
+
+  it("single @ RPE 10 is the load itself; unlogged singles stay on Epley", () => {
+    expect(setE1RM({ weightKg: 120, reps: 1, rpe: 10 })).toBeCloseTo(120, 5);
+    expect(setE1RM({ weightKg: 100, reps: 1 })).toBeCloseTo(epley1RM(100, 1), 5);
+  });
+
+  it("session best mixes both paths through the one calculator", () => {
+    const best = sessionBestE1RM([
+      { weightKg: 100, reps: 1, rpe: 9, completed: true }, // 105.26
+      { weightKg: 95, reps: 3, completed: true }, // Epley 104.5
+    ]);
+    expect(best).toBeCloseTo(100 / 0.95, 3);
   });
 });
